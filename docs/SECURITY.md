@@ -20,6 +20,35 @@ RepoMind AI will process sensitive assets: private repository source code, repos
 - Keep security controls testable and reviewable.
 - Prefer defense in depth over single points of trust.
 
+## API and Database Security Alignment
+
+Security rules must align with the REST API in `docs/API_SPEC.md` and the canonical tables in `docs/DATABASE.md`.
+
+Protected resource mapping:
+
+| Resource area | API capabilities | Database tables requiring authorization |
+| --- | --- | --- |
+| User identity | Login, logout, refresh token, profile | `users`, `user_profiles` |
+| Repositories | Connect GitHub, list repositories, repository details | `repositories`, `repository_branches` |
+| Indexing | Start indexing, index status | `indexing_jobs`, `repository_files`, `code_chunks`, `embeddings` |
+| Files | List files, read file, explain file | `repository_files`, `code_chunks`, `embeddings`, `citations` |
+| Search | Semantic search, keyword search | `repository_files`, `code_chunks`, `embeddings` |
+| Chat | Create session, send message, conversation history | `chat_sessions`, `chat_messages`, `citations` |
+| Dependency graph | Dependency graph | `dependency_edges`, `repository_files` |
+| Architecture | Architecture diagram, repository summary | `architecture_snapshots`, `repository_files`, `code_chunks`, `citations` |
+| Programmatic access | Future API key management | `api_keys`, `audit_logs` |
+| Auditability | Security and operational event capture | `audit_logs` |
+
+Alignment requirements:
+
+- Repository-scoped API endpoints must authorize against `repositories` before reading child tables.
+- File, chunk, embedding, citation, dependency, and architecture records must be validated as belonging to the authorized repository.
+- Chat requests must verify that `chat_sessions.user_id` and `chat_sessions.repository_id` are accessible to the caller.
+- Index status must expose only `indexing_jobs` for repositories the caller can access.
+- Security logs should record actions in `audit_logs`; do not introduce a separate legacy audit-event table.
+- AI answer evidence must use `citations`; do not introduce a separate legacy source-reference table.
+- Repository indexing state must use `indexing_jobs`; do not introduce a separate legacy analysis-job table.
+
 ## 1. Authentication Strategy
 
 RepoMind AI should support secure authentication for individual users first, while preserving a path to enterprise SSO.
@@ -416,13 +445,20 @@ Requirements:
 Sensitive tables:
 
 - `users`
+- `user_profiles`
 - `api_keys`
+- `repositories`
+- `repository_branches`
+- `indexing_jobs`
 - OAuth token storage table when introduced.
 - `repository_files`
 - `code_chunks`
 - `embeddings`
+- `chat_sessions`
 - `chat_messages`
 - `citations`
+- `dependency_edges`
+- `architecture_snapshots`
 - `audit_logs`
 
 Access control:
@@ -476,7 +512,7 @@ Logging requirements:
 - Redact secrets, tokens, API keys, cookies, authorization headers, and private source content.
 - Avoid logging full prompts and full AI responses in production.
 
-Audit events:
+Audit log events:
 
 - User login and logout.
 - OAuth connection and disconnection.

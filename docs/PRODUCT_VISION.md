@@ -71,7 +71,7 @@ Key advantages:
 - Repository-first intelligence rather than single-file or chat-only assistance.
 - Persistent knowledge graph of code, documentation, dependencies, commits, and architectural relationships.
 - Clean separation between analysis, recommendations, and code modification.
-- Human-verifiable reasoning with source references to files, symbols, and commits.
+- Human-verifiable reasoning with citations to files, symbols, and commits.
 - Support for team workflows such as onboarding, reviews, documentation, and release readiness.
 - Security-conscious architecture that avoids hardcoded secrets and treats repository data as sensitive.
 - Extensible design for multiple languages, repository providers, AI models, and deployment modes.
@@ -83,9 +83,9 @@ The MVP should prove that RepoMind AI can reliably understand a repository and a
 MVP goals:
 
 - Ingest a Git repository and extract file, folder, dependency, and metadata structure.
-- Generate high-quality repository summaries at project, folder, and file levels.
+- Generate high-quality repository summaries at repository, folder, and file levels.
 - Support natural language Q&A grounded in repository content.
-- Provide clickable source references for answers.
+- Provide clickable citations for answers.
 - Identify important entry points, configuration files, tests, and documentation.
 - Store repository analysis results for reuse across sessions.
 - Provide a simple frontend for repository upload/connection, analysis status, and chat-based exploration.

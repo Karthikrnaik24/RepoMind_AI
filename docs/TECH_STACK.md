@@ -35,7 +35,7 @@ Justification:
 - React has strong ecosystem support and hiring availability.
 - Vite is lightweight and fast for application development. Next.js is appropriate if server-side rendering, routing conventions, or full-stack deployment benefits become important.
 - Accessible UI primitives reduce the risk of inconsistent or inaccessible interfaces.
-- TanStack Query provides reliable server-state management for repository analysis jobs, polling, caching, and mutations.
+- TanStack Query provides reliable server-state management for repository indexing jobs, polling, caching, and mutations.
 - React Hook Form and Zod provide a clean path for validating user input at the UI boundary.
 - Playwright supports production-grade browser workflow verification.
 
@@ -97,13 +97,13 @@ Expected data domains:
 
 - Users and organizations.
 - Repositories.
-- Repository analysis jobs.
+- Repository indexing jobs.
 - File metadata.
 - Content chunks.
 - Embeddings.
 - AI conversations and messages.
 - Source references.
-- Audit events.
+- Audit logs.
 
 Future considerations:
 

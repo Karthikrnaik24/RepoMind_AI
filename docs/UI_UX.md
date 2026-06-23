@@ -9,7 +9,7 @@ RepoMind AI should feel like a serious engineering workspace: calm, fast, inform
 ## Experience Principles
 
 - Prioritize repository understanding over visual spectacle.
-- Make source references, confidence, and provenance visible.
+- Make citations, confidence, and provenance visible.
 - Keep long-running analysis states clear and predictable.
 - Use layouts that support scanning, comparison, and investigation.
 - Keep primary workflows available within one or two clicks.
@@ -820,13 +820,13 @@ Give administrators visibility and control over users, repositories, jobs, usage
 - Search users.
 - View repository indexing status.
 - Retry or cancel jobs where safe.
-- Inspect audit events.
+- Inspect audit log entries.
 - Export audit logs in future.
 - Disable API keys or suspend users where permitted.
 
 ### Empty States
 
-- No audit events for selected filters.
+- No audit log entries for selected filters.
 - No failed jobs.
 - No repositories connected in workspace.
 
@@ -900,7 +900,7 @@ When space is constrained:
 - Collapse navigation before hiding content.
 - Move inspectors and filters into drawers or sheets.
 - Prefer readable single-column workflows over cramped multi-column layouts.
-- Preserve file paths and source references, even if secondary metadata is hidden.
+- Preserve file paths and citations, even if secondary metadata is hidden.
 
 ## Product Tone
 
@@ -916,5 +916,31 @@ Avoid:
 
 - Overpromising certainty.
 - Cute or novelty language in operational workflows.
-- Vague AI claims without source references.
+- Vague AI claims without citations.
+
+## API Capability Alignment
+
+UI pages should map cleanly to the API capabilities defined in `docs/API_SPEC.md`.
+
+| UI page | Required API capabilities |
+| --- | --- |
+| Landing Page | Login initialization for signed-out conversion paths. |
+| Login | Login, refresh token where needed, profile after callback. |
+| Dashboard | Profile, list repositories, index status, conversation history summaries. |
+| Repository List | Connect GitHub, list repositories, start indexing, index status. |
+| Repository Details | Repository details, index status, repository summary, start indexing. |
+| Repository Chat | Create session, send message, conversation history, read cited files. |
+| File Explorer | List files, read file, explain file, keyword search. |
+| Architecture Viewer | Architecture diagram, repository summary, read cited files. |
+| Dependency Graph | Dependency graph, read selected files. |
+| Settings | Profile, logout, future API key and provider connection management. |
+| Billing | Future billing APIs; no billing endpoint is defined in the MVP API spec yet. |
+| Admin Dashboard | Future admin APIs; current MVP API spec does not expose admin management endpoints yet. |
+
+Alignment rules:
+
+- UI must not display workflows that imply unsupported backend capabilities without labeling them as future or disabled.
+- Repository Chat must render `citations` from chat responses rather than a separate source-reference concept.
+- Indexing UI must poll `indexing_jobs` through the index status endpoint.
+- File Explorer must use `repository_files` and `code_chunks` through the file, search, and explain endpoints.
 - Blaming users for provider, indexing, or permission problems.

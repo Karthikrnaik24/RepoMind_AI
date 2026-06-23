@@ -61,7 +61,7 @@ Objective: Store repository knowledge and retrieve relevant context for AI workf
 
 Deliverables:
 
-- Database schema for repositories, files, analysis jobs, and embeddings.
+- Database schema for repositories, files, indexing_jobs, code_chunks, and embeddings.
 - Background job processing for analysis tasks.
 - Text chunking strategy.
 - Embedding generation pipeline.
@@ -86,7 +86,7 @@ Deliverables:
 - Prompt templates with source citation requirements.
 - Frontend chat interface.
 - Repository selection and analysis status UI.
-- Response source references.
+- Response citations.
 - Basic feedback mechanism for answer quality.
 
 Success criteria:
@@ -101,7 +101,7 @@ Objective: Move beyond Q&A into structured engineering insights.
 
 Deliverables:
 
-- Project overview generation.
+- Repository overview generation.
 - Folder and module summaries.
 - Entry point detection.
 - Dependency and configuration summaries.
@@ -176,13 +176,13 @@ Success criteria:
 ### Milestone 4: First Usable Q&A
 
 - User can select a repository and ask questions.
-- Responses include source references.
+- Responses include citations.
 - Basic frontend and backend workflows are connected.
 
 ### Milestone 5: Onboarding Guide Generator
 
 - RepoMind AI generates structured repository documentation.
-- Output is useful for a new engineer joining a project.
+- Output is useful for a new engineer joining a repository.
 
 ### Milestone 6: Review Assistant
 
@@ -233,14 +233,14 @@ Goals:
 
 Expected output:
 
-- Repository analysis job can produce a structured file inventory.
+- Repository indexing job can produce a structured file inventory.
 
 ### Sprint 3: Persistence and Analysis Jobs
 
 Goals:
 
 - Add database schema.
-- Add analysis job tracking.
+- Add indexing_jobs tracking.
 - Introduce background processing.
 - Persist repository metadata.
 
@@ -252,7 +252,7 @@ Expected output:
 
 Goals:
 
-- Implement content chunking.
+- Implement code_chunks generation.
 - Generate embeddings.
 - Add vector or hybrid retrieval.
 - Validate retrieval quality with representative repositories.
@@ -278,7 +278,7 @@ Expected output:
 
 Goals:
 
-- Generate project summaries.
+- Generate repository summaries.
 - Add folder and module summaries.
 - Create onboarding guide output.
 - Add frontend views for repository intelligence.

@@ -771,7 +771,7 @@ Indexes:
 
 ### audit_logs
 
-Purpose: Stores immutable security and operational audit events.
+Purpose: Stores immutable security and operational audit log entries.
 
 | Column | Data Type | Notes |
 | --- | --- | --- |

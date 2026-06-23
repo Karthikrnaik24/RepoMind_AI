@@ -62,7 +62,7 @@ Primary responsibilities:
 - Backend API: Validates requests, enforces authorization, coordinates use cases, and exposes product capabilities.
 - Application services: Implement use cases without depending directly on frameworks or external providers.
 - Background workers: Execute long-running repository ingestion, indexing, embedding, and summarization tasks.
-- Database: Stores users, organizations, repositories, analysis metadata, chunks, embeddings, conversations, and audit records.
+- Database: Stores users, profiles, repositories, branches, indexing metadata, files, code chunks, embeddings, chat sessions, chat messages, citations, dependency edges, architecture snapshots, API keys, and audit logs.
 - AI orchestration: Coordinates retrieval, prompt construction, model calls, response validation, and citation handling.
 - Provider adapters: Integrate with GitHub, AI providers, storage, email, observability, and deployment infrastructure.
 
@@ -107,7 +107,7 @@ frontend/
 Frontend principles:
 
 - Keep API access centralized behind typed clients.
-- Use server-state tools for fetching, caching, invalidation, and polling analysis jobs.
+- Use server-state tools for fetching, caching, invalidation, and polling indexing jobs.
 - Keep forms validated at the browser boundary before calling backend APIs.
 - Keep authentication state explicit and recoverable after refresh.
 - Avoid putting business rules directly inside presentational components.
@@ -120,7 +120,7 @@ Core frontend feature areas:
 - Repository connection and selection.
 - Repository analysis status.
 - Repository overview and generated documentation.
-- AI chat with source references.
+- AI chat with citations.
 - User feedback on answer quality.
 - Workspace and account settings.
 
@@ -182,7 +182,7 @@ Key backend modules:
 
 - Auth service: Session management, OAuth callbacks, token storage coordination, and access checks.
 - Repository service: Repository records, provider connections, permissions, and metadata.
-- Indexing service: Repository ingestion, chunking, embedding, and analysis job orchestration.
+- Indexing service: Repository ingestion, chunking, embedding, and indexing job orchestration.
 - Retrieval service: Context search for AI workflows.
 - AI chat service: Prompt assembly, model call orchestration, response validation, and citation handling.
 - Audit service: Security-relevant and user-visible activity records.
@@ -193,39 +193,64 @@ PostgreSQL is the primary system of record. `pgvector` can be used initially for
 
 ```mermaid
 erDiagram
-    organizations ||--o{ users : contains
-    organizations ||--o{ repositories : owns
-    users ||--o{ repository_connections : authorizes
-    repositories ||--o{ repository_files : contains
-    repositories ||--o{ analysis_jobs : has
-    repository_files ||--o{ content_chunks : split_into
-    content_chunks ||--o{ embeddings : embedded_as
-    repositories ||--o{ conversations : discussed_in
-    conversations ||--o{ messages : contains
-    messages ||--o{ source_references : cites
-    users ||--o{ audit_events : triggers
+    users ||--o| user_profiles : has
+    users ||--o{ repositories : owns
+    users ||--o{ api_keys : creates
+    users ||--o{ audit_logs : triggers
+    users ||--o{ chat_sessions : starts
 
-    organizations {
+    repositories ||--o{ repository_branches : has
+    repositories ||--o{ repository_files : contains
+    repositories ||--o{ indexing_jobs : indexes
+    repositories ||--o{ chat_sessions : discussed_in
+    repositories ||--o{ dependency_edges : maps
+    repositories ||--o{ architecture_snapshots : summarizes
+    repositories ||--o{ audit_logs : referenced_by
+
+    repository_branches ||--o{ repository_files : includes
+    repository_branches ||--o{ indexing_jobs : targets
+
+    repository_files ||--o{ code_chunks : split_into
+    repository_files ||--o{ dependency_edges : source_file
+    repository_files ||--o{ dependency_edges : target_file
+
+    code_chunks ||--o{ embeddings : embedded_as
+    code_chunks ||--o{ citations : cited_by
+
+    indexing_jobs ||--o{ repository_files : discovers
+    indexing_jobs ||--o{ code_chunks : produces
+    indexing_jobs ||--o{ embeddings : produces
+    indexing_jobs ||--o{ architecture_snapshots : produces
+
+    chat_sessions ||--o{ chat_messages : contains
+    chat_messages ||--o{ citations : cites
+
+    users {
         uuid id
-        string name
+        string email
+        string auth_provider
+        string auth_provider_user_id
+        string status
         datetime created_at
         datetime updated_at
     }
 
-    users {
+    user_profiles {
         uuid id
-        uuid organization_id
-        string email
+        uuid user_id
         string display_name
+        string avatar_url
+        string timezone
         datetime created_at
         datetime updated_at
     }
 
     repositories {
         uuid id
-        uuid organization_id
+        uuid owner_user_id
         string provider
-        string owner
+        string provider_repository_id
+        string owner_name
         string name
         string default_branch
         string visibility
@@ -233,18 +258,20 @@ erDiagram
         datetime updated_at
     }
 
-    analysis_jobs {
+    repository_branches {
         uuid id
         uuid repository_id
-        string status
-        string job_type
-        datetime started_at
-        datetime completed_at
+        string name
+        string head_commit_sha
+        boolean is_default
+        datetime last_seen_at
     }
 
     repository_files {
         uuid id
         uuid repository_id
+        uuid branch_id
+        uuid indexing_job_id
         string path
         string language
         string content_hash
@@ -252,9 +279,10 @@ erDiagram
         datetime indexed_at
     }
 
-    content_chunks {
+    code_chunks {
         uuid id
         uuid repository_file_id
+        uuid indexing_job_id
         int chunk_index
         text content
         string content_hash
@@ -262,42 +290,83 @@ erDiagram
 
     embeddings {
         uuid id
-        uuid content_chunk_id
-        string model
+        uuid code_chunk_id
+        uuid indexing_job_id
+        string model_name
         vector embedding
         datetime created_at
     }
 
-    conversations {
+    indexing_jobs {
+        uuid id
+        uuid repository_id
+        uuid branch_id
+        uuid requested_by_user_id
+        string status
+        string job_type
+        datetime started_at
+        datetime completed_at
+    }
+
+    chat_sessions {
         uuid id
         uuid repository_id
         uuid user_id
+        uuid branch_id
         string title
         datetime created_at
     }
 
-    messages {
+    chat_messages {
         uuid id
-        uuid conversation_id
+        uuid chat_session_id
         string role
         text content
+        string model_name
         datetime created_at
     }
 
-    source_references {
+    citations {
         uuid id
-        uuid message_id
+        uuid chat_message_id
+        uuid code_chunk_id
         uuid repository_file_id
+        uuid repository_id
         int start_line
         int end_line
     }
 
-    audit_events {
+    dependency_edges {
+        uuid id
+        uuid repository_id
+        uuid source_file_id
+        uuid target_file_id
+        string dependency_type
+        datetime created_at
+    }
+
+    architecture_snapshots {
+        uuid id
+        uuid repository_id
+        uuid indexing_job_id
+        string snapshot_type
+        jsonb content
+    }
+
+    api_keys {
         uuid id
         uuid user_id
+        string key_hash
+        string status
+        datetime created_at
+    }
+
+    audit_logs {
+        uuid id
+        uuid user_id
+        uuid repository_id
         string action
         string resource_type
-        uuid resource_id
         datetime created_at
     }
 ```
@@ -310,7 +379,7 @@ Database design principles:
 - Keep embeddings linked to specific chunks, models, and timestamps.
 - Avoid storing raw access tokens without encryption.
 - Use migrations for all schema changes.
-- Add indexes for high-frequency lookup paths such as repository ID, organization ID, job status, file path, and vector search.
+- Add indexes for high-frequency lookup paths such as user ID, repository ID, branch ID, indexing job status, file path, chat session ID, citation lookup, and vector search.
 
 ## 5. Authentication Flow
 
@@ -394,7 +463,7 @@ Future GitHub capabilities:
 
 ## 7. Repository Indexing Pipeline
 
-Repository indexing converts repository content into structured metadata, searchable chunks, embeddings, summaries, and source references.
+Repository indexing converts repository content into structured metadata, searchable code chunks, embeddings, summaries, dependency edges, architecture snapshots, and citation-ready file references.
 
 ```mermaid
 flowchart TB
@@ -429,8 +498,8 @@ Indexing stages:
 - Content hashing: Detect unchanged files and avoid unnecessary reprocessing.
 - Chunking: Split files into meaningful units with stable references.
 - Embedding: Convert chunks into vector representations for retrieval.
-- Summarization: Generate project, folder, and file-level summaries where useful.
-- Persistence: Store metadata, chunks, embeddings, and job status transactionally where practical.
+- Summarization: Generate repository, folder, and file-level summaries where useful.
+- Persistence: Store repository metadata, repository_files, code_chunks, embeddings, dependency_edges, architecture_snapshots, and indexing job status transactionally where practical.
 
 Indexing safeguards:
 
@@ -465,7 +534,7 @@ RAG requirements:
 - Prefer hybrid retrieval when keyword matching is important for symbols, filenames, and exact error messages.
 - Rerank results before prompt assembly when context volume is high.
 - Keep prompt templates versioned and reviewable.
-- Require source references for repository-specific claims.
+- Require citations for repository-specific claims.
 - Clearly state uncertainty when retrieved context is insufficient.
 
 Quality controls:
@@ -501,7 +570,7 @@ sequenceDiagram
     AI-->>Backend: Draft answer
     Backend->>Backend: Validate citations and safety constraints
     Backend->>DB: Persist user message, assistant message, and sources
-    Backend-->>Frontend: Return answer with source references
+    Backend-->>Frontend: Return answer with citations
     Frontend-->>User: Display answer and cited files
 ```
 
@@ -510,7 +579,7 @@ AI chat requirements:
 - Every chat request must be authorized against the repository.
 - User messages should be validated for size and abuse controls.
 - Conversations should preserve message history where useful, but retrieval should remain the source of repository truth.
-- Assistant responses should include source references for repository claims.
+- Assistant responses should include citations for repository claims.
 - The UI should expose source files and line ranges when available.
 - The backend should track token usage, model choice, latency, and error rates.
 - The system should handle model errors, timeouts, and rate limits gracefully.
@@ -667,7 +736,7 @@ Required controls:
 - Repository access checks before indexing and retrieval.
 - Secret scanning safeguards during repository ingestion.
 - Centralized authorization checks.
-- Audit events for repository connection, indexing, chat access, token revocation, and administrative actions.
+- Audit logs for repository connection, indexing, chat access, token revocation, and administrative actions.
 
 ## Cross-Cutting Architecture Concerns
 
@@ -721,11 +790,24 @@ Scalability considerations:
 
 - Queue-based repository indexing.
 - Horizontal scaling for API and worker processes.
-- Database indexes for repository, organization, and job lookup paths.
+- Database indexes for user, repository, branch, indexing job, chat, citation, and audit lookup paths.
 - Embedding model abstraction.
 - Provider abstraction for repository services.
 - Caching for repeated metadata and analysis status requests.
 - Incremental re-indexing based on content hashes and provider events.
+
+## Implementation Readiness Checklist
+
+Before application code is generated, confirm:
+
+- Product scope for the MVP is aligned with `docs/PRODUCT_VISION.md` and `docs/PROJECT_ROADMAP.md`.
+- The canonical database table names match `docs/DATABASE.md`: `users`, `user_profiles`, `repositories`, `repository_branches`, `repository_files`, `code_chunks`, `embeddings`, `indexing_jobs`, `chat_sessions`, `chat_messages`, `citations`, `dependency_edges`, `architecture_snapshots`, `api_keys`, and `audit_logs`.
+- API endpoints in `docs/API_SPEC.md` map to the database tables they read and write.
+- UI pages in `docs/UI_UX.md` are backed by current API capabilities or clearly marked as future functionality.
+- Security controls in `docs/SECURITY.md` cover the same API resources and database tables.
+- Deployment assumptions in `docs/DEPLOYMENT.md` support separate frontend, backend API, worker, PostgreSQL, Redis, and AI provider configuration.
+- Testing expectations in `docs/TESTING_STRATEGY.md` cover backend, frontend, API, security, performance, and AI/RAG behavior.
+- No implementation starts until environment variables, secret handling, migration strategy, and repository indexing limits are defined for the first development milestone.
 
 ## Architecture Decision Records
 

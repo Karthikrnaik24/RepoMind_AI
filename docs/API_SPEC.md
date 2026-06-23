@@ -16,7 +16,7 @@ The API should be stable, explicit, secure by default, and suitable for frontend
 - Return consistent error payloads.
 - Never return secrets, provider tokens, raw API keys, or sensitive internal diagnostics.
 - Include pagination for list endpoints.
-- Include source references for AI-generated repository claims.
+- Include citations for AI-generated repository claims.
 - Keep long-running work asynchronous through indexing jobs.
 
 ## Base URL and Versioning
@@ -129,6 +129,42 @@ Common error codes:
 - `chat_session_not_found`
 - `ai_provider_error`
 - `insufficient_repository_context`
+
+## Endpoint-to-Table Mapping
+
+This section maps API capabilities to the canonical database tables defined in `docs/DATABASE.md`. Endpoint implementations should use these mappings as a starting point and should still enforce authorization before reading or writing repository-scoped data.
+
+| API capability | Primary tables read | Primary tables written |
+| --- | --- | --- |
+| Login | `users`, `user_profiles` | `users`, `user_profiles`, `audit_logs` |
+| Logout | `users` | `audit_logs` |
+| Refresh Token | `users` | `audit_logs` |
+| Profile | `users`, `user_profiles` | None |
+| Connect GitHub | `users`, `repositories`, `repository_branches` | `repositories`, `repository_branches`, `indexing_jobs`, `audit_logs` |
+| List repositories | `repositories`, `indexing_jobs` | None |
+| Repository details | `repositories`, `repository_branches`, `indexing_jobs` | None |
+| Start indexing | `repositories`, `repository_branches`, `indexing_jobs` | `indexing_jobs`, `audit_logs` |
+| Index status | `indexing_jobs`, `repositories`, `repository_branches` | None |
+| List files | `repositories`, `repository_branches`, `repository_files` | None |
+| Read file | `repositories`, `repository_files` | None |
+| Explain file | `repository_files`, `code_chunks`, `embeddings`, `dependency_edges` | None for the standalone endpoint; future persisted explanations must write through `chat_sessions`, `chat_messages`, and `citations` |
+| Semantic search | `repositories`, `repository_files`, `code_chunks`, `embeddings` | None |
+| Keyword search | `repositories`, `repository_files`, `code_chunks` | None |
+| Create chat session | `repositories`, `repository_branches` | `chat_sessions`, `audit_logs` |
+| Send message | `chat_sessions`, `repositories`, `repository_files`, `code_chunks`, `embeddings` | `chat_messages`, `citations`, `audit_logs` |
+| Conversation history | `chat_sessions`, `chat_messages`, `citations`, `repository_files`, `code_chunks` | None |
+| Dependency graph | `repositories`, `repository_branches`, `repository_files`, `dependency_edges` | None |
+| Architecture diagram | `repositories`, `repository_branches`, `architecture_snapshots` | None |
+| Repository summary | `repositories`, `repository_branches`, `architecture_snapshots`, `repository_files`, `code_chunks` | None |
+
+API-to-database consistency rules:
+
+- Repository-scoped endpoints must verify access through `repositories` before returning child records.
+- File endpoints must only return `repository_files` that belong to the requested `repository_id`.
+- Search endpoints must retrieve only `code_chunks` and `embeddings` reachable through authorized repositories and branches.
+- Chat endpoints must ensure `chat_sessions.repository_id` matches the repository context used for retrieval.
+- Citation responses must reference `citations`, `repository_files`, and `code_chunks`; do not introduce a separate legacy source-reference table.
+- Indexing endpoints must use `indexing_jobs`; do not introduce a separate legacy analysis-job table.
 
 ## Authentication Endpoints
 
