@@ -1,13 +1,20 @@
-# Web App
+# RepoMind AI Web
 
-This directory will contain the RepoMind AI frontend application.
+Frontend application for RepoMind AI.
 
-Intended responsibilities:
+## Purpose
 
-- Authenticated product UI.
-- Repository dashboard and details.
-- Repository chat experience.
-- File explorer.
-- Architecture and dependency graph views.
+This app will contain the authenticated product UI for repository intelligence workflows.
 
-Do not place backend logic, secrets, or provider credentials here.
+## Structure
+
+- `app/`: Next.js App Router shell, layouts, and future routes.
+- `components/`: Reusable UI components, including future shadcn/ui components.
+- `features/`: Feature-specific frontend workflows.
+- `hooks/`: Shared React hooks.
+- `lib/`: Frontend-only utility functions.
+- `api/`: Typed API clients and server-state helpers.
+- `styles/`: Global styles and design tokens.
+- `types/`: Shared frontend type definitions.
+
+No product pages have been implemented yet.
