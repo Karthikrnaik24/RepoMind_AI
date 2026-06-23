@@ -1,13 +1,20 @@
-# API App
+# RepoMind AI API
 
-This directory will contain the RepoMind AI backend API application.
+Backend API application for RepoMind AI.
 
-Intended responsibilities:
+## Purpose
 
-- REST API endpoints.
-- Authentication and authorization boundaries.
-- Repository indexing orchestration.
-- Background worker entry points.
-- Database and queue integration through infrastructure adapters.
+This app contains the FastAPI service and future worker entry points for repository intelligence workflows.
 
-Application code should follow the architecture documented in `docs/ARCHITECTURE.md`.
+## Structure
+
+- `app/`: Python application package.
+- `app/domain/`: Domain entities, value objects, policies, and ports.
+- `app/application/`: Use cases and orchestration services.
+- `app/infrastructure/`: Database, queue, provider, and external service adapters.
+- `app/interfaces/`: HTTP routes and future inbound adapters.
+- `app/config/`: Environment-driven settings.
+- `tests/`: Backend test suite.
+- `alembic/`: Database migration environment.
+
+Only the health endpoint is implemented at this stage.
