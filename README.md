@@ -46,3 +46,35 @@ RepoMind_AI/
 ## Current Scope
 
 No application logic has been implemented yet. See `docs/` for the product and engineering foundation before creating application code.
+
+## Local Development
+
+### Frontend
+
+```powershell
+cd apps/web
+npm install
+npm run dev
+```
+
+The frontend runs at `http://localhost:3000` by default. Copy `apps/web/.env.example` to `apps/web/.env.local` when local environment configuration is needed.
+
+### Backend
+
+```powershell
+cd apps/api
+uv sync --all-groups
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+The backend health endpoint runs at `http://localhost:8000/health`. Copy `apps/api/.env.example` to `apps/api/.env` for local configuration.
+
+### Docker Compose
+
+```powershell
+$env:POSTGRES_PASSWORD = "repomind"
+$env:DATABASE_URL = "postgresql+psycopg://repomind:repomind@postgres:5432/repomind"
+docker compose up --build
+```
+
+Docker Compose starts the frontend, backend, PostgreSQL with pgvector, and Redis. Use local-only credentials for development and never commit real secrets.
