@@ -14,6 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infrastructure.database.base import BaseModel
 
 if TYPE_CHECKING:
+    from app.infrastructure.database.models.indexing import IndexingJob, RepositoryFile
     from app.infrastructure.database.models.user import User
 
 
@@ -60,6 +61,16 @@ class Repository(BaseModel):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    files: Mapped[list["RepositoryFile"]] = relationship(
+        back_populates="repository",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    indexing_jobs: Mapped[list["IndexingJob"]] = relationship(
+        back_populates="repository",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
 
 
 class RepositoryBranch(BaseModel):
@@ -93,3 +104,12 @@ class RepositoryBranch(BaseModel):
     last_seen_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     repository: Mapped[Repository] = relationship(back_populates="branches")
+    files: Mapped[list["RepositoryFile"]] = relationship(
+        back_populates="branch",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    indexing_jobs: Mapped[list["IndexingJob"]] = relationship(
+        back_populates="branch",
+        passive_deletes=True,
+    )

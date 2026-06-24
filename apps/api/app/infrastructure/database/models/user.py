@@ -14,6 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infrastructure.database.base import BaseModel, SoftDeleteBaseModel
 
 if TYPE_CHECKING:
+    from app.infrastructure.database.models.indexing import IndexingJob
     from app.infrastructure.database.models.repository import Repository
 
 
@@ -57,6 +58,10 @@ class User(SoftDeleteBaseModel):
     )
     repositories: Mapped[list["Repository"]] = relationship(
         back_populates="owner",
+        passive_deletes=True,
+    )
+    requested_indexing_jobs: Mapped[list["IndexingJob"]] = relationship(
+        back_populates="requested_by",
         passive_deletes=True,
     )
 

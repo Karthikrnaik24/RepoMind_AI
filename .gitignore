@@ -55,6 +55,8 @@ web_modules/
 .eslintcache
 
 # Python local tooling and caches
+__pycache__/
+*.py[cod]
 .venv/
 .ruff_cache/
 .pytest_cache/
