@@ -12,6 +12,13 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://repomind:repomind@localhost:5432/repomind",
         alias="DATABASE_URL",
     )
+    database_pool_size: int = Field(default=5, alias="DATABASE_POOL_SIZE", ge=1)
+    database_max_overflow: int = Field(default=10, alias="DATABASE_MAX_OVERFLOW", ge=0)
+    database_pool_recycle_seconds: int = Field(
+        default=1800,
+        alias="DATABASE_POOL_RECYCLE_SECONDS",
+        ge=1,
+    )
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     frontend_origin: str = Field(default="http://localhost:3000", alias="FRONTEND_ORIGIN")
 

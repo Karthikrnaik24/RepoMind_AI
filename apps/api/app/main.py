@@ -1,8 +1,26 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config.settings import get_settings
+from app.infrastructure.database.session import (
+    check_database_connection,
+    close_database_connections,
+)
 from app.interfaces.http.health import router as health_router
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Validate database connectivity on startup and close pools on shutdown."""
+
+    check_database_connection()
+    try:
+        yield
+    finally:
+        close_database_connections()
 
 
 def create_app() -> FastAPI:
@@ -12,6 +30,7 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         docs_url="/docs" if settings.is_development else None,
         redoc_url="/redoc" if settings.is_development else None,
+        lifespan=lifespan,
     )
     app.add_middleware(
         CORSMiddleware,

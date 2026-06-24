@@ -49,9 +49,18 @@ web_modules/
 
 # Optional npm cache directory
 .npm
+.npm-cache
 
 # Optional eslint cache
 .eslintcache
+
+# Python local tooling and caches
+.venv/
+.ruff_cache/
+.pytest_cache/
+.uv-tool/
+.uv-cache/
+.uv-python/
 
 # Optional stylelint cache
 .stylelintcache

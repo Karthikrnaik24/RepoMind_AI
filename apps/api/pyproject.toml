@@ -27,6 +27,13 @@ package = false
 target-version = "py312"
 line-length = 100
 src = ["app", "tests"]
+exclude = [
+  ".ruff_cache",
+  ".uv-cache",
+  ".uv-python",
+  ".uv-tool",
+  ".venv",
+]
 
 [tool.ruff.lint]
 select = [
