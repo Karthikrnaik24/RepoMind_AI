@@ -1,5 +1,5 @@
-"""Future SQLAlchemy ORM models package.
+"""SQLAlchemy ORM models package."""
 
-ORM models are intentionally not defined yet. They will be added from
-docs/DATABASE.md in later milestones.
-"""
+from app.infrastructure.database.models.user import User, UserProfile
+
+__all__ = ["User", "UserProfile"]
