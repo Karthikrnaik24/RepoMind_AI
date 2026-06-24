@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infrastructure.database.base import BaseModel, SoftDeleteBaseModel
 
 if TYPE_CHECKING:
+    from app.infrastructure.database.models.analysis import ArchitectureSnapshot, DependencyEdge
     from app.infrastructure.database.models.chat import Citation
     from app.infrastructure.database.models.repository import Repository, RepositoryBranch
     from app.infrastructure.database.models.user import User
@@ -89,6 +90,14 @@ class IndexingJob(BaseModel):
     repository_files: Mapped[list["RepositoryFile"]] = relationship(back_populates="indexing_job")
     code_chunks: Mapped[list["CodeChunk"]] = relationship(back_populates="indexing_job")
     embeddings: Mapped[list["Embedding"]] = relationship(back_populates="indexing_job")
+    dependency_edges: Mapped[list["DependencyEdge"]] = relationship(
+        back_populates="indexing_job",
+        passive_deletes=True,
+    )
+    architecture_snapshots: Mapped[list["ArchitectureSnapshot"]] = relationship(
+        back_populates="indexing_job",
+        passive_deletes=True,
+    )
 
 
 class RepositoryFile(SoftDeleteBaseModel):
@@ -146,6 +155,16 @@ class RepositoryFile(SoftDeleteBaseModel):
     )
     citations: Mapped[list["Citation"]] = relationship(
         back_populates="repository_file",
+        passive_deletes=True,
+    )
+    source_dependency_edges: Mapped[list["DependencyEdge"]] = relationship(
+        back_populates="source_file",
+        foreign_keys="DependencyEdge.source_file_id",
+        passive_deletes=True,
+    )
+    target_dependency_edges: Mapped[list["DependencyEdge"]] = relationship(
+        back_populates="target_file",
+        foreign_keys="DependencyEdge.target_file_id",
         passive_deletes=True,
     )
 

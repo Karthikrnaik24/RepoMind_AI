@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from app.infrastructure.database.models.chat import ChatSession
     from app.infrastructure.database.models.indexing import IndexingJob
     from app.infrastructure.database.models.repository import Repository
+    from app.infrastructure.database.models.security import ApiKey, AuditLog
 
 
 class User(SoftDeleteBaseModel):
@@ -68,6 +69,15 @@ class User(SoftDeleteBaseModel):
     chat_sessions: Mapped[list["ChatSession"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    api_keys: Mapped[list["ApiKey"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    audit_logs: Mapped[list["AuditLog"]] = relationship(
+        back_populates="user",
         passive_deletes=True,
     )
 

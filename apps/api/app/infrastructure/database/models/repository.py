@@ -14,8 +14,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infrastructure.database.base import BaseModel
 
 if TYPE_CHECKING:
+    from app.infrastructure.database.models.analysis import ArchitectureSnapshot, DependencyEdge
     from app.infrastructure.database.models.chat import ChatSession, Citation
     from app.infrastructure.database.models.indexing import IndexingJob, RepositoryFile
+    from app.infrastructure.database.models.security import AuditLog
     from app.infrastructure.database.models.user import User
 
 
@@ -81,6 +83,20 @@ class Repository(BaseModel):
         back_populates="repository",
         passive_deletes=True,
     )
+    dependency_edges: Mapped[list["DependencyEdge"]] = relationship(
+        back_populates="repository",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    architecture_snapshots: Mapped[list["ArchitectureSnapshot"]] = relationship(
+        back_populates="repository",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    audit_logs: Mapped[list["AuditLog"]] = relationship(
+        back_populates="repository",
+        passive_deletes=True,
+    )
 
 
 class RepositoryBranch(BaseModel):
@@ -124,6 +140,14 @@ class RepositoryBranch(BaseModel):
         passive_deletes=True,
     )
     chat_sessions: Mapped[list["ChatSession"]] = relationship(
+        back_populates="branch",
+        passive_deletes=True,
+    )
+    dependency_edges: Mapped[list["DependencyEdge"]] = relationship(
+        back_populates="branch",
+        passive_deletes=True,
+    )
+    architecture_snapshots: Mapped[list["ArchitectureSnapshot"]] = relationship(
         back_populates="branch",
         passive_deletes=True,
     )
