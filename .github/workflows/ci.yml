@@ -1,6 +1,9 @@
 name: CI
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
 
 permissions:
@@ -28,9 +31,11 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
 
       - name: Install frontend dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run frontend lint
         run: npm run lint
@@ -57,7 +62,7 @@ jobs:
         uses: astral-sh/setup-uv@v5
 
       - name: Install backend dependencies
-        run: uv sync --all-groups
+        run: uv sync --all-groups --locked
 
       - name: Run backend lint
         run: uv run ruff check .

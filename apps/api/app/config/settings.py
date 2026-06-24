@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -12,6 +12,8 @@ class Settings(BaseSettings):
         default="postgresql+psycopg://repomind:repomind@localhost:5432/repomind",
         alias="DATABASE_URL",
     )
+    redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
+    frontend_origin: str = Field(default="http://localhost:3000", alias="FRONTEND_ORIGIN")
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -22,6 +24,17 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.app_environment == "development"
+
+    @property
+    def cors_allowed_origins(self) -> list[str]:
+        return [self.frontend_origin]
+
+    @model_validator(mode="after")
+    def validate_production_cors(self) -> "Settings":
+        if not self.is_development and self.frontend_origin == "*":
+            msg = "FRONTEND_ORIGIN cannot be a wildcard outside development."
+            raise ValueError(msg)
+        return self
 
 
 @lru_cache

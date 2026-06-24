@@ -53,7 +53,7 @@ No application logic has been implemented yet. See `docs/` for the product and e
 
 ```powershell
 cd apps/web
-npm install
+npm ci
 npm run dev
 ```
 
@@ -72,8 +72,7 @@ The backend health endpoint runs at `http://localhost:8000/health`. Copy `apps/a
 ### Docker Compose
 
 ```powershell
-$env:POSTGRES_PASSWORD = "repomind"
-$env:DATABASE_URL = "postgresql+psycopg://repomind:repomind@postgres:5432/repomind"
+Copy-Item .env.example .env
 docker compose up --build
 ```
 
