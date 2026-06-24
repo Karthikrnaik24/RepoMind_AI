@@ -14,6 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infrastructure.database.base import BaseModel
 
 if TYPE_CHECKING:
+    from app.infrastructure.database.models.chat import ChatSession, Citation
     from app.infrastructure.database.models.indexing import IndexingJob, RepositoryFile
     from app.infrastructure.database.models.user import User
 
@@ -71,6 +72,15 @@ class Repository(BaseModel):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(
+        back_populates="repository",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    citations: Mapped[list["Citation"]] = relationship(
+        back_populates="repository",
+        passive_deletes=True,
+    )
 
 
 class RepositoryBranch(BaseModel):
@@ -110,6 +120,10 @@ class RepositoryBranch(BaseModel):
         passive_deletes=True,
     )
     indexing_jobs: Mapped[list["IndexingJob"]] = relationship(
+        back_populates="branch",
+        passive_deletes=True,
+    )
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(
         back_populates="branch",
         passive_deletes=True,
     )

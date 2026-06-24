@@ -14,6 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infrastructure.database.base import BaseModel, SoftDeleteBaseModel
 
 if TYPE_CHECKING:
+    from app.infrastructure.database.models.chat import ChatSession
     from app.infrastructure.database.models.indexing import IndexingJob
     from app.infrastructure.database.models.repository import Repository
 
@@ -62,6 +63,11 @@ class User(SoftDeleteBaseModel):
     )
     requested_indexing_jobs: Mapped[list["IndexingJob"]] = relationship(
         back_populates="requested_by",
+        passive_deletes=True,
+    )
+    chat_sessions: Mapped[list["ChatSession"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
         passive_deletes=True,
     )
 

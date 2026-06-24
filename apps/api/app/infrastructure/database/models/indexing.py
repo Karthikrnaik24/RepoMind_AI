@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infrastructure.database.base import BaseModel, SoftDeleteBaseModel
 
 if TYPE_CHECKING:
+    from app.infrastructure.database.models.chat import Citation
     from app.infrastructure.database.models.repository import Repository, RepositoryBranch
     from app.infrastructure.database.models.user import User
 
@@ -143,6 +144,10 @@ class RepositoryFile(SoftDeleteBaseModel):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+    citations: Mapped[list["Citation"]] = relationship(
+        back_populates="repository_file",
+        passive_deletes=True,
+    )
 
 
 class CodeChunk(BaseModel):
@@ -190,6 +195,10 @@ class CodeChunk(BaseModel):
     embeddings: Mapped[list["Embedding"]] = relationship(
         back_populates="code_chunk",
         cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    citations: Mapped[list["Citation"]] = relationship(
+        back_populates="code_chunk",
         passive_deletes=True,
     )
 

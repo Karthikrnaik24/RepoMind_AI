@@ -1,5 +1,6 @@
 """SQLAlchemy ORM models package."""
 
+from app.infrastructure.database.models.chat import ChatMessage, ChatSession, Citation
 from app.infrastructure.database.models.indexing import (
     CodeChunk,
     Embedding,
@@ -10,6 +11,9 @@ from app.infrastructure.database.models.repository import Repository, Repository
 from app.infrastructure.database.models.user import User, UserProfile
 
 __all__ = [
+    "ChatMessage",
+    "ChatSession",
+    "Citation",
     "CodeChunk",
     "Embedding",
     "IndexingJob",
