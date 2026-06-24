@@ -10,8 +10,8 @@ docs/DATABASE.md. It does not add authentication logic.
 
 from collections.abc import Sequence
 
-from alembic import op
 import sqlalchemy as sa
+from alembic import op
 
 revision: str = "20260624_0001"
 down_revision: str | None = None
@@ -31,8 +31,18 @@ def upgrade() -> None:
         sa.Column("last_login_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("deleted_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.CheckConstraint(
             "status IN ('active', 'suspended', 'deleted')",
             name=op.f("ck_users_status_valid"),
@@ -64,8 +74,18 @@ def upgrade() -> None:
         sa.Column("timezone", sa.String(length=80), nullable=True),
         sa.Column("locale", sa.String(length=20), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
-        sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
+        sa.Column(
+            "updated_at",
+            sa.DateTime(timezone=True),
+            server_default=sa.func.now(),
+            nullable=False,
+        ),
         sa.ForeignKeyConstraint(
             ["user_id"],
             ["users.id"],
@@ -88,7 +108,11 @@ def downgrade() -> None:
 
     op.drop_index("ix_user_profiles_display_name", table_name="user_profiles")
     op.drop_table("user_profiles")
-    op.drop_index("uq_users_email_active", table_name="users", postgresql_where=sa.text("deleted_at IS NULL"))
+    op.drop_index(
+        "uq_users_email_active",
+        table_name="users",
+        postgresql_where=sa.text("deleted_at IS NULL"),
+    )
     op.drop_index("uq_users_auth_provider_auth_provider_user_id", table_name="users")
     op.drop_index("ix_users_status", table_name="users")
     op.drop_index("ix_users_deleted_at", table_name="users")

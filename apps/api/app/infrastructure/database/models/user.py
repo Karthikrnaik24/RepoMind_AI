@@ -6,6 +6,7 @@ docs/DATABASE.md. They intentionally contain no authentication or CRUD logic.
 
 from datetime import datetime
 from typing import TYPE_CHECKING
+from uuid import UUID
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -13,7 +14,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.infrastructure.database.base import BaseModel, SoftDeleteBaseModel
 
 if TYPE_CHECKING:
-    from uuid import UUID
+    from app.infrastructure.database.models.repository import Repository
 
 
 class User(SoftDeleteBaseModel):
@@ -54,6 +55,10 @@ class User(SoftDeleteBaseModel):
         single_parent=True,
         uselist=False,
     )
+    repositories: Mapped[list["Repository"]] = relationship(
+        back_populates="owner",
+        passive_deletes=True,
+    )
 
 
 class UserProfile(BaseModel):
@@ -64,7 +69,7 @@ class UserProfile(BaseModel):
         Index("ix_user_profiles_display_name", "display_name"),
     )
 
-    user_id: Mapped["UUID"] = mapped_column(
+    user_id: Mapped[UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"),
         unique=True,
         nullable=False,

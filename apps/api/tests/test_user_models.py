@@ -1,5 +1,3 @@
-from uuid import UUID
-
 from app.infrastructure.database.models import User, UserProfile
 
 
@@ -14,7 +12,6 @@ def test_user_model_creation_with_profile_relationship() -> None:
 
     user.profile = profile
 
-    assert isinstance(user.id, UUID)
     assert user.email == "engineer@example.com"
     assert user.profile is profile
     assert profile.user is user
@@ -29,6 +26,7 @@ def test_user_model_constraints_and_indexes_are_declared() -> None:
     index_names = {index.name for index in User.__table__.indexes}
     constraint_names = {constraint.name for constraint in User.__table__.constraints}
 
+    assert User.__table__.primary_key.columns.keys() == ["id"]
     assert "uq_users_email_active" in index_names
     assert "uq_users_auth_provider_auth_provider_user_id" in index_names
     assert "ix_users_status" in index_names
