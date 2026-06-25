@@ -71,3 +71,10 @@ def test_logger_provider_returns_named_logger() -> None:
     logger = dependencies.get_logger()
 
     assert logger.name == "repomind.api"
+
+
+def test_supabase_provider_returns_configured_client() -> None:
+    supabase_client = dependencies.get_supabase_client()
+
+    assert supabase_client.url == "https://test-project.supabase.co"
+    assert supabase_client.is_configured is True

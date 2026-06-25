@@ -52,6 +52,8 @@ async def test_v1_status_endpoint_returns_service_metadata() -> None:
         "success": True,
         "data": {
             "status": "ok",
+            "database": "connected",
+            "supabase": "configured",
             "service": "repomind-api",
             "version": "0.1.0",
         },

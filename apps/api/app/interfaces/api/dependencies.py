@@ -15,6 +15,7 @@ from app.application.services import ChatService, IndexingService, RepositorySer
 from app.config.settings import Settings
 from app.config.settings import get_settings as load_settings
 from app.core.logging import get_logger as load_logger
+from app.infrastructure.auth import SupabaseClient, create_supabase_client
 from app.infrastructure.database.session import get_db_session
 from app.repositories import (
     ChatRepository,
@@ -40,6 +41,12 @@ def get_logger() -> logging.Logger:
     """Return the application logger for dependency-injected components."""
 
     return load_logger("repomind.api")
+
+
+def get_supabase_client() -> SupabaseClient:
+    """Return a configured Supabase client placeholder."""
+
+    return create_supabase_client(load_settings())
 
 
 DbSession = Annotated[Session, Depends(get_db)]

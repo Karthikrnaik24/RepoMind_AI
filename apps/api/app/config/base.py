@@ -4,7 +4,7 @@ All environment-specific settings inherit from this module so infrastructure,
 API routes, and dependency providers share one typed configuration contract.
 """
 
-from pydantic import Field, model_validator
+from pydantic import Field, SecretStr, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -28,6 +28,13 @@ class BaseAppSettings(BaseSettings):
     database_check_on_startup: bool = Field(default=True, alias="DATABASE_CHECK_ON_STARTUP")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     frontend_origin: str = Field(default="http://localhost:3000", alias="FRONTEND_ORIGIN")
+    supabase_url: str = Field(default="", alias="SUPABASE_URL")
+    supabase_anon_key: SecretStr = Field(default=SecretStr(""), alias="SUPABASE_ANON_KEY")
+    supabase_service_role_key: SecretStr = Field(
+        default=SecretStr(""),
+        alias="SUPABASE_SERVICE_ROLE_KEY",
+    )
+    supabase_jwt_secret: SecretStr = Field(default=SecretStr(""), alias="SUPABASE_JWT_SECRET")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_json: bool = Field(default=True, alias="LOG_JSON")
 
@@ -54,6 +61,19 @@ class BaseAppSettings(BaseSettings):
         """Return CORS origins validated from environment configuration."""
 
         return [self.frontend_origin]
+
+    @property
+    def is_supabase_configured(self) -> bool:
+        """Return whether required Supabase identity settings are present."""
+
+        return all(
+            [
+                self.supabase_url,
+                self.supabase_anon_key.get_secret_value(),
+                self.supabase_service_role_key.get_secret_value(),
+                self.supabase_jwt_secret.get_secret_value(),
+            ],
+        )
 
     @model_validator(mode="after")
     def validate_production_cors(self) -> "BaseAppSettings":

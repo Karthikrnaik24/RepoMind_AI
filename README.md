@@ -79,3 +79,29 @@ docker compose up --build
 ```
 
 Docker Compose starts the frontend, backend, PostgreSQL with pgvector, and Redis. Use local-only credentials for development and never commit real secrets.
+
+## Supabase Setup
+
+Sprint 3.1 configures Supabase identity infrastructure only. It does not add login, OAuth callbacks, RBAC, or protected routes.
+
+Required frontend variables:
+
+```text
+NEXT_PUBLIC_SUPABASE_URL=https://your-project-ref.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
+```
+
+Required backend variables:
+
+```text
+SUPABASE_URL=https://your-project-ref.supabase.co
+SUPABASE_ANON_KEY=your-supabase-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+SUPABASE_JWT_SECRET=your-supabase-jwt-secret
+```
+
+Copy `.env.example` to `.env` for Docker Compose, `apps/web/.env.example` to `apps/web/.env.local` for frontend-only development, and `apps/api/.env.example` to `apps/api/.env` for backend-only development.
+
+Never expose `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_JWT_SECRET` in the frontend.
+
+See `docs/AUTH_ARCHITECTURE.md` for the identity, JWT, OAuth, user synchronization, and future RBAC design.

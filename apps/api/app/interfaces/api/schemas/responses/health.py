@@ -13,5 +13,7 @@ class StatusData(BaseModel):
     """Service status payload."""
 
     status: str
+    database: str
+    supabase: str
     service: str
     version: str

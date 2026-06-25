@@ -24,3 +24,16 @@ This app contains the FastAPI service and future worker entry points for reposit
 - `alembic/`: Database migration environment.
 
 Only system health and status endpoints are implemented at this stage. Versioned API responses use the standard `{ "success": true, "data": {}, "meta": {} }` envelope.
+
+## Supabase Identity Foundation
+
+Sprint 3.1 loads Supabase configuration and prepares JWT verification utilities. It does not require authentication on any route.
+
+Required backend variables:
+
+- `SUPABASE_URL`
+- `SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_JWT_SECRET`
+
+`GET /api/v1/status` reports whether Supabase configuration exists without calling Supabase APIs.
