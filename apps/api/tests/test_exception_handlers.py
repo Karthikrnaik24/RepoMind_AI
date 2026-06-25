@@ -1,4 +1,4 @@
-from app.core.exceptions import ResourceNotFoundException
+from app.core.exceptions import AuthorizationException, ResourceNotFoundException
 from app.main import create_app
 from fastapi import Query
 from httpx import ASGITransport, AsyncClient
@@ -40,3 +40,23 @@ async def test_request_validation_handler_returns_standard_failure_response() ->
     assert payload["error"]["code"] == "validation_error"
     assert payload["error"]["message"] == "The request is invalid."
     assert "errors" in payload["error"]["details"]
+
+
+async def test_authorization_exception_handler_returns_standard_403_response() -> None:
+    app = create_app()
+
+    @app.get("/test/forbidden")
+    def raise_forbidden() -> None:
+        raise AuthorizationException("Forbidden test action.")
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/test/forbidden")
+
+    assert response.status_code == 403
+    assert response.json() == {
+        "success": False,
+        "error": {
+            "code": "authorization_error",
+            "message": "Forbidden test action.",
+        },
+    }

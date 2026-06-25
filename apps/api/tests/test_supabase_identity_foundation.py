@@ -1,9 +1,10 @@
 from app.config.settings import get_settings
 from app.infrastructure.auth import create_supabase_client, create_supabase_jwt_verifier
 from app.infrastructure.auth.dependencies import (
-    get_current_user_placeholder,
+    get_identity_provider,
     get_supabase_jwt_verifier,
 )
+from app.infrastructure.auth.supabase_provider import SupabaseIdentityProvider
 
 
 def test_settings_load_supabase_configuration() -> None:
@@ -34,8 +35,9 @@ def test_jwt_helper_initialization_uses_settings_only() -> None:
     assert verifier.is_configured is True
 
 
-def test_auth_dependency_placeholders_do_not_require_authentication() -> None:
+def test_auth_dependencies_create_identity_provider_without_route_authentication() -> None:
     verifier = get_supabase_jwt_verifier(get_settings())
+    provider = get_identity_provider(verifier)
 
     assert verifier.is_configured is True
-    assert get_current_user_placeholder() is None
+    assert isinstance(provider, SupabaseIdentityProvider)

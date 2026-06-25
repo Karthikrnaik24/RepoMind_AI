@@ -2,6 +2,7 @@
 
 from app.core.exceptions.handlers import register_exception_handlers
 from app.core.exceptions.types import (
+    AuthenticationException,
     AuthorizationException,
     BaseAppException,
     ConflictException,
@@ -11,6 +12,7 @@ from app.core.exceptions.types import (
 )
 
 __all__ = [
+    "AuthenticationException",
     "AuthorizationException",
     "BaseAppException",
     "ConflictException",

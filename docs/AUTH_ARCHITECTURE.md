@@ -25,10 +25,10 @@ Current scope:
 - Frontend Supabase SDK clients are configured.
 - The server-side Supabase client is a foundation-only factory and is not cookie-aware yet.
 - Backend Supabase configuration is loaded from environment variables.
-- JWT verifier utilities are available but not attached to routes.
+- JWT verifier utilities are available and used by the current-user dependency for protected routes.
 - `AuthenticatedUser`, `IdentityProvider`, and `IdentityService` abstractions are prepared.
-- No API route requires authentication yet.
-- Login, OAuth callbacks, RBAC enforcement, and protected routes are not implemented yet.
+- `GET /api/v1/me` is protected through dependency injection.
+- Login, OAuth callbacks, RBAC enforcement, and user synchronization are not implemented yet.
 
 ## Identity Domain Model
 
@@ -53,7 +53,7 @@ verify_token(token: str) -> AuthenticatedUser
 
 The first adapter is `SupabaseIdentityProvider`, which uses the Supabase JWT verifier and converts verified claims into `AuthenticatedUser`.
 
-Routes are not protected yet. The abstraction exists so Sprint 3.2 can introduce authentication without coupling routes directly to Supabase internals.
+Routes must not verify JWTs directly. Protected routes depend on `get_current_user()`, which delegates token verification through `IdentityService`.
 
 ## IdentityService Flow
 
@@ -77,7 +77,69 @@ Deferred responsibilities:
 - User database synchronization.
 - Session persistence.
 - Role and permission resolution.
-- Protected route dependency enforcement.
+
+## JWT Validation Pipeline
+
+Sprint 3.2 introduces dependency-based JWT authentication for protected FastAPI endpoints.
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Route as Protected Route
+    participant Dependency as get_current_user
+    participant Service as IdentityService
+    participant Provider as IdentityProvider
+    participant Verifier as SupabaseJwtVerifier
+
+    Client->>Route: Request with Authorization header
+    Route->>Dependency: Resolve current user dependency
+    Dependency->>Dependency: Parse Bearer token
+    Dependency->>Service: verify_token(token)
+    Service->>Provider: verify_token(token)
+    Provider->>Verifier: verify(token)
+    Verifier-->>Provider: JWT claims
+    Provider-->>Service: AuthenticatedUser
+    Service-->>Dependency: AuthenticatedUser
+    Dependency-->>Route: AuthenticatedUser
+```
+
+Failure behavior:
+
+- Missing `Authorization` header returns `401`.
+- Invalid bearer format returns `401`.
+- Invalid JWT returns `401`.
+- Expired JWT returns `401`.
+- Authorization failures that happen after authentication should return `403`.
+
+The pipeline uses FastAPI dependency injection only. Authentication middleware is intentionally not implemented.
+
+## CurrentUser Dependency
+
+`get_current_user()` is the reusable authentication dependency for protected routes.
+
+Responsibilities:
+
+- Read the `Authorization` header.
+- Validate the `Bearer` token format.
+- Call `IdentityService.verify_token(token)`.
+- Return `AuthenticatedUser`.
+- Convert authentication failures into the standard API error envelope.
+
+Current protected endpoint:
+
+- `GET /api/v1/me`
+
+Response data:
+
+```json
+{
+  "id": "provider-subject",
+  "email": "user@example.com",
+  "provider": "supabase",
+  "role": "member",
+  "metadata": {}
+}
+```
 
 ## JWT Verification Flow
 

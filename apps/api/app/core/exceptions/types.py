@@ -33,6 +33,14 @@ class ValidationException(BaseAppException):
     message = "The request is invalid."
 
 
+class AuthenticationException(BaseAppException):
+    """Raised when a request cannot be authenticated."""
+
+    status_code = 401
+    code = "authentication_error"
+    message = "Authentication is required."
+
+
 class AuthorizationException(BaseAppException):
     """Raised when a principal is not allowed to perform an action."""
 

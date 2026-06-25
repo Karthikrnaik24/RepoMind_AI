@@ -4,13 +4,14 @@ These providers prepare future authentication wiring only. They do not require
 authentication and should not be used to protect routes in Sprint 3.1.
 """
 
-from typing import Annotated, Any
+from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, Header
 
 from app.application.services.identity_service import IdentityService
 from app.config.settings import Settings, get_settings
-from app.domain.identity import IdentityProvider
+from app.core.exceptions import AuthenticationException, AuthorizationException
+from app.domain.identity import AuthenticatedUser, IdentityProvider
 from app.infrastructure.auth.jwt import SupabaseJwtVerifier, create_supabase_jwt_verifier
 from app.infrastructure.auth.supabase import SupabaseClient, create_supabase_client
 from app.infrastructure.auth.supabase_provider import SupabaseIdentityProvider
@@ -48,7 +49,31 @@ def get_identity_service(
     return IdentityService(identity_provider)
 
 
-def get_current_user_placeholder() -> dict[str, Any] | None:
-    """Return no authenticated user until authentication is implemented."""
+def extract_bearer_token(authorization: str | None) -> str:
+    """Extract a bearer token from an Authorization header."""
 
-    return None
+    if not authorization:
+        raise AuthenticationException("Missing Authorization bearer token.", code="missing_token")
+
+    scheme, separator, token = authorization.partition(" ")
+    if not separator or scheme.lower() != "bearer" or not token.strip():
+        raise AuthenticationException(
+            "Authorization header must use the Bearer scheme.",
+            code="invalid_authorization_header",
+        )
+    return token.strip()
+
+
+def get_current_user(
+    identity_service: Annotated[IdentityService, Depends(get_identity_service)],
+    authorization: Annotated[str | None, Header(alias="Authorization")] = None,
+) -> AuthenticatedUser:
+    """Authenticate the request using an Authorization bearer token."""
+
+    token = extract_bearer_token(authorization)
+    try:
+        return identity_service.verify_token(token)
+    except AuthenticationException:
+        raise
+    except AuthorizationException as exc:
+        raise AuthenticationException(exc.message, code=exc.code, details=exc.details) from exc
