@@ -8,4 +8,5 @@ class TestingSettings(BaseAppSettings):
 
     app_environment: str = "testing"
     database_url: str = "sqlite+pysqlite:///:memory:"
+    database_check_on_startup: bool = False
     log_level: str = "WARNING"

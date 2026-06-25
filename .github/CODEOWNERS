@@ -1,0 +1,16 @@
+# Default ownership for RepoMind AI.
+* @RepoMind-AI/core
+
+# Backend ownership.
+/apps/api/ @RepoMind-AI/backend
+
+# Frontend ownership.
+/apps/web/ @RepoMind-AI/frontend
+
+# Documentation ownership.
+/docs/ @RepoMind-AI/docs
+
+# Infrastructure and CI ownership.
+/.github/ @RepoMind-AI/platform
+/docker/ @RepoMind-AI/platform
+/infra/ @RepoMind-AI/platform

@@ -17,10 +17,11 @@ from app.middleware import ErrorHandlingMiddleware, LoggingMiddleware, RequestId
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Validate database connectivity on startup and close pools on shutdown."""
 
-    check_database_connection()
+    if app.state.settings.database_check_on_startup:
+        check_database_connection()
     try:
         yield
     finally:
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
         redoc_url="/redoc" if settings.is_development else None,
         lifespan=lifespan,
     )
+    app.state.settings = settings
     register_exception_handlers(app)
     app.add_middleware(ErrorHandlingMiddleware)
     app.add_middleware(RequestIdMiddleware)

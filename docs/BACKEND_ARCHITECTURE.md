@@ -148,3 +148,9 @@ Settings are split by environment in `apps/api/app/config/`:
 - `settings.py`
 
 `settings.py` remains the backwards-compatible factory used by existing imports.
+
+## Testing Configuration
+
+Lightweight unit and API tests run with `APP_ENV=testing`. In this environment, startup database connectivity checks are disabled by default so health endpoint tests do not require PostgreSQL.
+
+PostgreSQL-specific model and integration tests must run against PostgreSQL, not SQLite. This includes tests for Alembic migrations, pgvector columns, PostgreSQL JSONB/INET behavior, partial indexes, GIN/HNSW indexes, and constraint behavior that SQLite cannot represent accurately.

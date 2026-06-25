@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 from app.application.services import ChatService, IndexingService, RepositoryService, UserService
+from app.config.settings import get_settings
 from app.infrastructure.database.models import User
 from app.interfaces.api import dependencies
 from app.repositories import (
@@ -10,6 +11,13 @@ from app.repositories import (
     UserRepository,
 )
 from sqlalchemy.orm import Session
+
+
+def test_tests_run_with_testing_settings() -> None:
+    settings = get_settings()
+
+    assert settings.app_environment == "testing"
+    assert settings.database_check_on_startup is False
 
 
 def test_repository_layer_can_stage_entities() -> None:

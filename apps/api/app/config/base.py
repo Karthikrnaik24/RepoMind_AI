@@ -25,6 +25,7 @@ class BaseAppSettings(BaseSettings):
         alias="DATABASE_POOL_RECYCLE_SECONDS",
         ge=1,
     )
+    database_check_on_startup: bool = Field(default=True, alias="DATABASE_CHECK_ON_STARTUP")
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     frontend_origin: str = Field(default="http://localhost:3000", alias="FRONTEND_ORIGIN")
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")

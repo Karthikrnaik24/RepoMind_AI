@@ -1,5 +1,17 @@
+import app.main as app_main
 from app.main import create_app
 from httpx import ASGITransport, AsyncClient
+
+
+async def test_testing_lifespan_skips_database_startup_check(monkeypatch) -> None:
+    def fail_database_check() -> None:
+        raise AssertionError("database startup check should be disabled in lightweight tests")
+
+    monkeypatch.setattr(app_main, "check_database_connection", fail_database_check)
+    app = create_app()
+
+    async with app.router.lifespan_context(app):
+        assert app.state.settings.app_environment == "testing"
 
 
 async def test_health_endpoint_returns_ok() -> None:
