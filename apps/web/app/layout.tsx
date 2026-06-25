@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import "@/styles/globals.css";
+
+import { AuthProvider } from "../features/auth/auth-provider";
+import "../styles/globals.css";
 
 export const metadata: Metadata = {
   title: "RepoMind AI",
@@ -14,7 +16,10 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
+

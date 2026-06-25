@@ -78,6 +78,58 @@ Deferred responsibilities:
 - Session persistence.
 - Role and permission resolution.
 
+
+## Frontend Auth Provider Flow
+
+Sprint 3.3 adds a client-side authentication provider in `apps/web/features/auth/`.
+
+Responsibilities:
+
+- Create the browser Supabase client lazily.
+- Read the current Supabase session.
+- Track `session`, `user`, and `loading` state.
+- Subscribe to Supabase auth state changes.
+- Expose `refreshSession()` for session refresh preparation.
+- Expose `signOut()` for logout foundation.
+
+Missing Supabase environment variables must not crash static builds or module imports. The provider handles missing configuration by settling into an unauthenticated state until auth actions are used in a configured environment.
+
+OAuth provider login is not enabled yet. Google and GitHub sign-in buttons are disabled placeholders on `/login`.
+
+## Frontend Protected Route Flow
+
+`RequireAuth` is the reusable route guard for frontend-only protected pages.
+
+```mermaid
+flowchart TD
+    Page["Protected page"] --> Guard["RequireAuth"]
+    Guard --> Loading{"Auth loading?"}
+    Loading -->|Yes| LoadingState["Show loading state"]
+    Loading -->|No| Session{"Session exists?"}
+    Session -->|No| Login["Redirect to /login"]
+    Session -->|Yes| Children["Render protected content"]
+```
+
+Current protected frontend page:
+
+- `/dashboard`
+
+The dashboard only shows the signed-in email and logout foundation. Repository features are intentionally not implemented in Sprint 3.3.
+
+## Session Lifecycle
+
+Current frontend session lifecycle:
+
+1. `AuthProvider` mounts once at the root layout.
+2. The provider lazily creates a Supabase browser client.
+3. The provider calls `auth.getSession()` to load the initial session.
+4. The provider subscribes to `auth.onAuthStateChange()`.
+5. Session changes update the current `session` and `user` state.
+6. `signOut()` clears local auth state after Supabase sign-out.
+7. `refreshSession()` reloads the current Supabase session.
+
+The backend API client in `apps/web/api/client.ts` can attach the Supabase access token as `Authorization: Bearer <token>` when a caller provides a session getter. Sprint 3.3 does not call protected repository endpoints.
+
 ## JWT Validation Pipeline
 
 Sprint 3.2 introduces dependency-based JWT authentication for protected FastAPI endpoints.
@@ -220,4 +272,5 @@ Backend:
 - `SUPABASE_JWT_SECRET`
 
 The service role key and JWT secret must never be exposed to the browser, committed to source control, logged, or returned by an API.
+
 
