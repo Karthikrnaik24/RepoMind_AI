@@ -1,10 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+function getSupabasePublicConfig() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error("Supabase public environment variables are not configured.");
+  if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase public environment variables are not configured.");
+  }
+
+  return { supabaseUrl, supabaseAnonKey };
 }
 
-export const createSupabaseServerClient = () => createClient(supabaseUrl, supabaseAnonKey);
+export function createServerSupabaseClient() {
+  const { supabaseUrl, supabaseAnonKey } = getSupabasePublicConfig();
+
+  return createClient(supabaseUrl, supabaseAnonKey);
+}

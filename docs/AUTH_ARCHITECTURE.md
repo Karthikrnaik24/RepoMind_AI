@@ -25,7 +25,58 @@ Current scope:
 - Frontend Supabase SDK clients are configured.
 - Backend Supabase configuration is loaded from environment variables.
 - JWT verifier utilities are available but not attached to routes.
+- `AuthenticatedUser`, `IdentityProvider`, and `IdentityService` abstractions are prepared.
 - No API route requires authentication yet.
+- Login, OAuth callbacks, RBAC enforcement, and protected routes are not implemented yet.
+
+## Identity Domain Model
+
+The backend uses a small domain identity model so application services do not depend directly on Supabase-specific claim shapes.
+
+`AuthenticatedUser` contains:
+
+- `provider_subject`: Stable external subject, such as the Supabase `sub` claim.
+- `email`: Verified identity email from the provider token.
+- `role`: Optional future application role.
+- `metadata`: Safe provider metadata needed by future services.
+
+This entity is not persisted during Sprint 3.1. Future user synchronization will map it to `users` and `user_profiles`.
+
+## IdentityProvider Abstraction
+
+`IdentityProvider` is a backend protocol with:
+
+```text
+verify_token(token: str) -> AuthenticatedUser
+```
+
+The first adapter is `SupabaseIdentityProvider`, which uses the Supabase JWT verifier and converts verified claims into `AuthenticatedUser`.
+
+Routes are not protected yet. The abstraction exists so Sprint 3.2 can introduce authentication without coupling routes directly to Supabase internals.
+
+## IdentityService Flow
+
+```mermaid
+flowchart TD
+    Token["Bearer token"] --> Service["IdentityService.verify_token"]
+    Service --> Provider["IdentityProvider.verify_token"]
+    Provider --> Verifier["SupabaseJwtVerifier.verify"]
+    Verifier --> Claims["Verified JWT claims"]
+    Claims --> User["AuthenticatedUser"]
+```
+
+Current `IdentityService` responsibility:
+
+- Accept an `IdentityProvider` dependency.
+- Delegate `verify_token(token)`.
+- Return `AuthenticatedUser`.
+
+Deferred responsibilities:
+
+- User database synchronization.
+- Session persistence.
+- Role and permission resolution.
+- Protected route dependency enforcement.
 
 ## JWT Verification Flow
 
@@ -37,7 +88,7 @@ Future protected routes will use this flow:
 4. Resolve or synchronize the application user.
 5. Inject an authenticated principal into application services.
 
-Sprint 3.1 only prepares the verifier utility and dependency providers.
+Sprint 3.1 only prepares the verifier utility, identity provider adapter, identity service, and dependency providers.
 
 ## OAuth Architecture
 
@@ -50,6 +101,8 @@ Supabase will own external OAuth provider interaction. The expected future OAuth
 5. The backend verifies the token and maps the identity to RepoMind AI users.
 
 GitHub OAuth for repository installation and access remains a separate future integration. It must not be mixed with application login concerns.
+
+OAuth is not implemented in Sprint 3.1. No frontend route starts OAuth, and no backend route handles OAuth callbacks.
 
 ## User Synchronization Architecture
 

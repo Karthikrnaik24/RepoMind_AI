@@ -6,9 +6,11 @@ authentication, implement login, or introduce RBAC.
 
 from app.infrastructure.auth.jwt import SupabaseJwtVerifier, create_supabase_jwt_verifier
 from app.infrastructure.auth.supabase import SupabaseClient, create_supabase_client
+from app.infrastructure.auth.supabase_provider import SupabaseIdentityProvider
 
 __all__ = [
     "SupabaseClient",
+    "SupabaseIdentityProvider",
     "SupabaseJwtVerifier",
     "create_supabase_client",
     "create_supabase_jwt_verifier",

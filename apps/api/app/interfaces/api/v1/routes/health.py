@@ -28,7 +28,7 @@ def read_status() -> dict:
     return success_response(
         StatusData(
             status="ok",
-            database="connected",
+            database="configured",
             supabase="configured" if settings.is_supabase_configured else "missing",
             service="repomind-api",
             version=settings.app_version,
