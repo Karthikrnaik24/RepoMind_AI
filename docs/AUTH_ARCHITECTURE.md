@@ -105,11 +105,14 @@ sequenceDiagram
 
 Failure behavior:
 
+- All authentication failures return `401` using the standard API error envelope.
 - Missing `Authorization` header returns `401`.
 - Invalid bearer format returns `401`.
-- Invalid JWT returns `401`.
+- Malformed JWT structure returns `401`.
+- Invalid JWT base64 or JSON returns `401`.
+- Missing or invalid JWT claims return `401`.
 - Expired JWT returns `401`.
-- Authorization failures that happen after authentication should return `403`.
+- Authorization and RBAC failures will return `403` in a later sprint.
 
 The pipeline uses FastAPI dependency injection only. Authentication middleware is intentionally not implemented.
 
@@ -217,3 +220,4 @@ Backend:
 - `SUPABASE_JWT_SECRET`
 
 The service role key and JWT secret must never be exposed to the browser, committed to source control, logged, or returned by an API.
+

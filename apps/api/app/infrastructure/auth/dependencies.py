@@ -1,7 +1,7 @@
 """Authentication dependency placeholders.
 
-These providers prepare future authentication wiring only. They do not require
-authentication and should not be used to protect routes in Sprint 3.1.
+These providers prepare authentication wiring without implementing login, OAuth,
+RBAC, user synchronization, or authentication middleware.
 """
 
 from typing import Annotated
@@ -44,7 +44,7 @@ def get_identity_provider(
 def get_identity_service(
     identity_provider: Annotated[IdentityProvider, Depends(get_identity_provider)],
 ) -> IdentityService:
-    """Return the identity service without protecting any routes."""
+    """Return the identity service for protected route dependencies."""
 
     return IdentityService(identity_provider)
 
@@ -77,3 +77,5 @@ def get_current_user(
         raise
     except AuthorizationException as exc:
         raise AuthenticationException(exc.message, code=exc.code, details=exc.details) from exc
+    except Exception as exc:
+        raise AuthenticationException("Invalid JWT.", code="invalid_token") from exc

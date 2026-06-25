@@ -1,24 +1,26 @@
 """Supabase JWT verification utilities.
 
-These helpers prepare token verification infrastructure for future protected
-routes. Sprint 3.1 does not attach them to route authentication.
+These helpers prepare token verification infrastructure for protected routes
+without implementing login, OAuth, or user synchronization.
 """
 
 import base64
+import binascii
 import hashlib
 import hmac
 import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from json import JSONDecodeError
 from typing import Any
 
 from app.config.settings import Settings
-from app.core.exceptions import AuthorizationException, ValidationException
+from app.core.exceptions import AuthenticationException
 
 
 @dataclass(frozen=True)
 class SupabaseJwtVerifier:
-    """Verify Supabase HS256 JWTs when future routes opt into authentication."""
+    """Verify Supabase HS256 JWTs when routes opt into authentication."""
 
     jwt_secret: str
     issuer: str | None = None
@@ -31,28 +33,25 @@ class SupabaseJwtVerifier:
         return bool(self.jwt_secret)
 
     def verify(self, token: str) -> dict[str, Any]:
-        """Verify a JWT signature and return claims.
-
-        This method is intentionally unused by routes in Sprint 3.1.
-        """
+        """Verify a JWT signature and return claims."""
 
         if not self.jwt_secret:
-            raise AuthorizationException("Supabase JWT verification is not configured.")
+            raise AuthenticationException("Invalid JWT.", code="invalid_token")
 
         header_segment, payload_segment, signature_segment = self._split_token(token)
         header = self._decode_json_segment(header_segment)
         if header.get("alg") != "HS256":
-            raise AuthorizationException("Unsupported JWT signing algorithm.")
+            raise AuthenticationException("JWT claims are invalid.", code="invalid_token_claims")
 
         signing_input = f"{header_segment}.{payload_segment}".encode()
         expected_signature = hmac.new(
-            self.jwt_secret.encode("utf-8"),
+            self.jwt_secret.encode(),
             signing_input,
             hashlib.sha256,
         ).digest()
         provided_signature = self._decode_segment(signature_segment)
         if not hmac.compare_digest(expected_signature, provided_signature):
-            raise AuthorizationException("Invalid JWT signature.")
+            raise AuthenticationException("Invalid JWT.", code="invalid_token")
 
         claims = self._decode_json_segment(payload_segment)
         self._validate_registered_claims(claims)
@@ -60,32 +59,47 @@ class SupabaseJwtVerifier:
 
     def _validate_registered_claims(self, claims: dict[str, Any]) -> None:
         expires_at = claims.get("exp")
-        if expires_at is not None and int(expires_at) < int(datetime.now(UTC).timestamp()):
-            raise AuthorizationException("JWT has expired.")
+        if expires_at is None:
+            raise AuthenticationException("JWT claims are invalid.", code="invalid_token_claims")
+        try:
+            expires_at_timestamp = int(expires_at)
+        except (TypeError, ValueError) as exc:
+            raise AuthenticationException(
+                "JWT claims are invalid.",
+                code="invalid_token_claims",
+            ) from exc
+        if expires_at_timestamp < int(datetime.now(UTC).timestamp()):
+            raise AuthenticationException("JWT has expired.", code="token_expired")
         if self.issuer and claims.get("iss") != self.issuer:
-            raise AuthorizationException("JWT issuer is invalid.")
+            raise AuthenticationException("JWT claims are invalid.", code="invalid_token_claims")
         if self.audience and claims.get("aud") != self.audience:
-            raise AuthorizationException("JWT audience is invalid.")
+            raise AuthenticationException("JWT claims are invalid.", code="invalid_token_claims")
 
     @staticmethod
     def _split_token(token: str) -> tuple[str, str, str]:
         segments = token.split(".")
-        if len(segments) != 3:
-            raise ValidationException("JWT must contain header, payload, and signature.")
+        if len(segments) != 3 or any(not segment for segment in segments):
+            raise AuthenticationException("Invalid JWT.", code="invalid_token")
         return segments[0], segments[1], segments[2]
 
     @staticmethod
     def _decode_json_segment(segment: str) -> dict[str, Any]:
         decoded = SupabaseJwtVerifier._decode_segment(segment)
-        value = json.loads(decoded)
+        try:
+            value = json.loads(decoded)
+        except (JSONDecodeError, UnicodeDecodeError) as exc:
+            raise AuthenticationException("Invalid JWT.", code="invalid_token") from exc
         if not isinstance(value, dict):
-            raise ValidationException("JWT segment must decode to an object.")
+            raise AuthenticationException("Invalid JWT.", code="invalid_token")
         return value
 
     @staticmethod
     def _decode_segment(segment: str) -> bytes:
         padding = "=" * (-len(segment) % 4)
-        return base64.urlsafe_b64decode(f"{segment}{padding}")
+        try:
+            return base64.b64decode(f"{segment}{padding}", altchars=b"-_", validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise AuthenticationException("Invalid JWT.", code="invalid_token") from exc
 
 
 def create_supabase_jwt_verifier(settings: Settings) -> SupabaseJwtVerifier:

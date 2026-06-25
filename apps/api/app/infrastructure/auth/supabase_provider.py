@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from app.core.exceptions import ValidationException
+from app.core.exceptions import AuthenticationException
 from app.domain.identity import AuthenticatedUser
 from app.infrastructure.auth.jwt import SupabaseJwtVerifier
 
@@ -24,9 +24,9 @@ class SupabaseIdentityProvider:
         provider_subject = claims.get("sub")
         email = claims.get("email")
         if not isinstance(provider_subject, str) or not provider_subject:
-            raise ValidationException("Supabase JWT is missing a subject.")
+            raise AuthenticationException("JWT claims are invalid.", code="invalid_token_claims")
         if not isinstance(email, str) or not email:
-            raise ValidationException("Supabase JWT is missing an email.")
+            raise AuthenticationException("JWT claims are invalid.", code="invalid_token_claims")
 
         app_metadata = claims.get("app_metadata")
         role = claims.get("role")
