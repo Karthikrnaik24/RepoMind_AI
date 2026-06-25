@@ -47,6 +47,8 @@ RepoMind_AI/
 
 No application logic has been implemented yet. See `docs/` for the product and engineering foundation before creating application code.
 
+Backend architecture hardening is documented in `docs/BACKEND_ARCHITECTURE.md`, including the repository pattern, service layer, DTOs, middleware, logging, and versioned API conventions.
+
 ## Local Development
 
 ### Frontend

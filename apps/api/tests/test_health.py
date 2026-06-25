@@ -1,24 +1,58 @@
 from app.main import create_app
-from fastapi.testclient import TestClient
+from httpx import ASGITransport, AsyncClient
 
 
-def test_health_endpoint_returns_ok() -> None:
-    client = TestClient(create_app())
-
-    response = client.get("/health")
+async def test_health_endpoint_returns_ok() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=create_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/health")
 
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def test_status_endpoint_returns_service_metadata() -> None:
-    client = TestClient(create_app())
-
-    response = client.get("/api/status")
+async def test_v1_health_endpoint_returns_standard_success_response() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=create_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/health")
 
     assert response.status_code == 200
     assert response.json() == {
-        "status": "ok",
-        "service": "repomind-api",
-        "version": "0.1.0",
+        "success": True,
+        "data": {"status": "ok"},
+        "meta": {},
     }
+
+
+async def test_v1_status_endpoint_returns_service_metadata() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=create_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/status")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "success": True,
+        "data": {
+            "status": "ok",
+            "service": "repomind-api",
+            "version": "0.1.0",
+        },
+        "meta": {},
+    }
+
+
+async def test_v1_responses_include_request_id_header() -> None:
+    async with AsyncClient(
+        transport=ASGITransport(app=create_app()),
+        base_url="http://test",
+    ) as client:
+        response = await client.get("/api/v1/status", headers={"X-Request-ID": "test-request-id"})
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == "test-request-id"
