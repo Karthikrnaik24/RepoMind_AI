@@ -40,6 +40,9 @@ jobs:
       - name: Run frontend lint
         run: npm run lint
 
+      - name: Run frontend typecheck
+        run: npm run typecheck
+
       - name: Run frontend tests
         run: npm test
 

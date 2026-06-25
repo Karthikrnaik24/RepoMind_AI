@@ -23,6 +23,7 @@ sequenceDiagram
 Current scope:
 
 - Frontend Supabase SDK clients are configured.
+- The server-side Supabase client is a foundation-only factory and is not cookie-aware yet.
 - Backend Supabase configuration is loaded from environment variables.
 - JWT verifier utilities are available but not attached to routes.
 - `AuthenticatedUser`, `IdentityProvider`, and `IdentityService` abstractions are prepared.
@@ -89,6 +90,10 @@ Future protected routes will use this flow:
 5. Inject an authenticated principal into application services.
 
 Sprint 3.1 only prepares the verifier utility, identity provider adapter, identity service, and dependency providers.
+
+The current JWT verification helper is foundation-only. Before production, token verification should use a maintained JWT/JWKS-compatible library or the official Supabase verification approach for the deployed Supabase Auth configuration. Production verification must also include key rotation behavior, issuer and audience validation, clock-skew handling, and security review.
+
+When SSR authentication is implemented, the server-side Supabase client should become cookie-aware so it can read and refresh Supabase sessions safely through Next.js request and response cookies.
 
 ## OAuth Architecture
 
