@@ -97,6 +97,33 @@ Usage rules:
 - Preserve contrast for code, tables, graphs, and dense metadata.
 - Use neutral surfaces and borders to keep engineering workflows readable.
 
+### Dark and Light Mode
+
+RepoMind AI supports light, dark, and system-preference modes using a class-based theme strategy. The design should feel close to developer tools such as GitHub: neutral surfaces, crisp borders, compact navigation, readable code-oriented content, and restrained use of color.
+
+Theme behavior:
+
+- Default to the user's system preference when no explicit selection exists.
+- Persist the user's selected theme across refreshes and future sessions.
+- Apply theme changes without a page reload.
+- Keep all text, icons, borders, controls, and cards readable in both modes.
+- Avoid theme-specific business logic; theme state is a UI preference only.
+
+Theme toggle behavior:
+
+- Place the toggle in the global top navigation.
+- Use a moon icon when the next action is switching to dark mode.
+- Use a sun icon when the next action is switching to light mode.
+- Provide an accessible `aria-label` that describes the action.
+- Preserve keyboard focus visibility and pointer hover states.
+
+GitHub-inspired layout direction:
+
+- Use a compact top navbar with RepoMind AI branding, global search, sign-in, get-started, dashboard, logout, and theme controls as appropriate to auth state.
+- Use repository-style preview cards, file/module rows, and status pills to make the product category obvious.
+- Keep the landing page branded as RepoMind AI; do not use GitHub logos, GitHub-owned copy, or provider branding as decoration.
+- Prefer operational UI previews over abstract illustrations.
+
 ### Typography
 
 Recommended font approach:
@@ -179,7 +206,7 @@ Introduce RepoMind AI to unauthenticated visitors and convert qualified users to
 
 ### Components
 
-- Top navigation with logo, product links, pricing, documentation, and sign-in action.
+- Global top navigation with RepoMind AI branding, search, theme toggle, sign-in, and get-started actions.
 - Hero section with product name, concise value proposition, and primary action.
 - Repository intelligence preview using real product concepts such as chat, citations, indexing status, and architecture summary.
 - Problem and value sections.
@@ -197,7 +224,7 @@ Introduce RepoMind AI to unauthenticated visitors and convert qualified users to
 
 ### Navigation
 
-- Primary actions: Sign in, connect GitHub, request demo.
+- Primary actions: Sign in, get started, and view dashboard when authenticated.
 - Secondary links: Docs, pricing, security, GitHub integration.
 - Signed-in users should be redirected to Dashboard from primary app entry points.
 
@@ -233,8 +260,8 @@ Allow users to authenticate securely and enter the product.
 ### Components
 
 - Product logo and short trust-oriented message.
-- GitHub sign-in button.
-- Future SSO or email options area.
+- Google sign-in button.
+- Disabled GitHub sign-in placeholder until GitHub OAuth is implemented in a later sprint.
 - Terms and privacy links.
 - Error alert area.
 
@@ -247,12 +274,12 @@ Allow users to authenticate securely and enter the product.
 ### Navigation
 
 - Back to landing page.
-- Continue to GitHub OAuth.
+- Continue to Google OAuth.
 - Redirect to intended destination after login.
 
 ### User Interactions
 
-- Click GitHub sign-in.
+- Click Google sign-in.
 - Retry after failed login.
 - Open terms or privacy links.
 

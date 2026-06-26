@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import Image from "next/image";
@@ -40,9 +40,9 @@ function DashboardContent() {
   const provider = getProvider(user);
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10 text-foreground">
+    <main className="min-h-[calc(100vh-4rem)] bg-background px-6 py-10 text-foreground">
       <section className="mx-auto max-w-4xl">
-        <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">Dashboard</p>
+        <p className="text-sm font-medium uppercase text-muted-foreground">Dashboard</p>
         <div className="mt-4 flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
             {avatarUrl ? (
@@ -60,11 +60,9 @@ function DashboardContent() {
               </div>
             )}
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight">{displayName}</h1>
+              <h1 className="text-3xl font-semibold">{displayName}</h1>
               <p className="mt-2 text-sm text-muted-foreground">{user?.email ?? "unknown user"}</p>
-              <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">
-                Provider: {provider}
-              </p>
+              <p className="mt-1 text-xs uppercase text-muted-foreground">Provider: {provider}</p>
             </div>
           </div>
           <button

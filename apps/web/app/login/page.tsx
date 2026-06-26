@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { Suspense } from "react";
@@ -12,10 +12,10 @@ function LoginContent() {
   const hasAuthError = searchParams.get("error") === "authentication_failed";
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-background px-6 text-foreground">
+    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-6 text-foreground">
       <section className="w-full max-w-md rounded-lg border border-border bg-card p-8 shadow-sm">
-        <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">RepoMind AI</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">Sign in to understand your repositories</h1>
+        <p className="text-sm font-medium uppercase text-muted-foreground">RepoMind AI</p>
+        <h1 className="mt-3 text-3xl font-semibold">Sign in to understand your repositories</h1>
         {hasAuthError ? (
           <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             Authentication failed. Please try signing in again.
@@ -49,7 +49,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="flex min-h-screen items-center justify-center bg-background px-6 text-sm text-muted-foreground">
+        <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-6 text-sm text-muted-foreground">
           Loading sign in...
         </main>
       }
