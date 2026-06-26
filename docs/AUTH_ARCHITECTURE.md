@@ -271,15 +271,54 @@ The callback route uses the cookie-aware Supabase SSR client to exchange the OAu
 
 ## User Synchronization Architecture
 
-Future user synchronization should:
+Sprint 3.6 synchronizes verified Supabase identities into local PostgreSQL records when protected backend routes need the current user.
 
-- Treat Supabase Auth as the identity provider.
-- Store application-specific user state in `users` and `user_profiles`.
-- Match users by stable Supabase subject claims.
-- Avoid storing raw access tokens or refresh tokens in application tables.
-- Create audit logs for identity-sensitive events.
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Route as GET /api/v1/me
+    participant Auth as get_current_user
+    participant Sync as UserSyncService
+    participant Repo as UserRepository
+    participant DB as PostgreSQL
 
-Synchronization should happen in application services, not route handlers.
+    Client->>Route: Authorization: Bearer Supabase JWT
+    Route->>Auth: Resolve AuthenticatedUser
+    Auth-->>Route: Supabase subject, email, role, metadata
+    Route->>Sync: sync_authenticated_user(AuthenticatedUser)
+    Sync->>Repo: get_by_provider_subject(subject, provider)
+    Repo->>DB: Query users
+    alt Missing local user
+        Sync->>Repo: create_user(...)
+        Sync->>Repo: create_or_update_profile(...)
+    else Existing local user
+        Sync->>Repo: update_last_login(...)
+        Sync->>Repo: create_or_update_profile(...)
+    end
+    Sync-->>Route: Local User + UserProfile
+    Route-->>Client: Local user identity DTO
+```
+
+Supabase user versus local user:
+
+- The Supabase user is the external identity source and is represented in the backend as `AuthenticatedUser` after JWT verification.
+- The local `users` row is RepoMind AI's durable application identity, keyed to Supabase through `auth_provider = "supabase"` and `auth_provider_user_id = provider_subject`.
+- The local `user_profiles` row stores display-facing profile metadata such as display name and avatar URL.
+
+Why local users exist:
+
+- Repository ownership, chat sessions, API keys, audit logs, billing, and future workspace membership need stable local foreign keys.
+- Local profile data lets RepoMind AI support product preferences without writing back to Supabase Auth.
+- Local records make future authorization, auditing, and enterprise administration possible without coupling every domain table to provider-specific claim formats.
+
+Synchronization rules:
+
+- Routes do not query SQLAlchemy directly.
+- `GET /api/v1/me` verifies the JWT through the existing identity pipeline, then calls `UserSyncService`.
+- `UserSyncService` uses `UserRepository` for all persistence operations.
+- Sync is transactional: user and profile changes are flushed in one unit of work and rolled back together on failure.
+- Raw Supabase access tokens and refresh tokens are never stored in application tables.
+- Audit logging for identity-sensitive sync events is deferred to a later sprint.
 
 ## Future RBAC Design
 

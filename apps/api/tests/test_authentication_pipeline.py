@@ -1,18 +1,24 @@
-import base64
+﻿import base64
 import hashlib
 import hmac
 import json
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
+from uuid import UUID
 
 from app.config.settings import get_settings
 from app.core.exceptions import AuthenticationException
 from app.domain.identity import AuthenticatedUser
 from app.infrastructure.auth.dependencies import get_identity_provider
+from app.infrastructure.database.models import User, UserProfile
+from app.interfaces.api.dependencies import get_db
 from app.main import create_app
 from httpx import ASGITransport, AsyncClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 
 class FakeIdentityProvider:
@@ -40,13 +46,49 @@ class FakeIdentityProvider:
 @asynccontextmanager
 async def create_test_client(
     provider: FakeIdentityProvider | None = None,
+    *,
+    use_database: bool = False,
 ) -> AsyncIterator[AsyncClient]:
     app = create_app()
+    engine = None
     if provider is not None:
         app.dependency_overrides[get_identity_provider] = lambda: provider
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        yield client
-    app.dependency_overrides.clear()
+    if use_database:
+        engine = create_engine(
+            "sqlite://",
+            connect_args={"check_same_thread": False},
+            poolclass=StaticPool,
+        )
+        User.__table__.create(engine)
+        UserProfile.__table__.create(engine)
+        testing_session = sessionmaker(
+            bind=engine,
+            autoflush=False,
+            autocommit=False,
+            expire_on_commit=False,
+        )
+
+        def override_get_db() -> Iterator[Session]:
+            session = testing_session()
+            try:
+                yield session
+                session.commit()
+            except Exception:
+                session.rollback()
+                raise
+            finally:
+                session.close()
+
+        app.dependency_overrides[get_db] = override_get_db
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            yield client
+    finally:
+        app.dependency_overrides.clear()
+        if engine is not None:
+            UserProfile.__table__.drop(engine)
+            User.__table__.drop(engine)
+            engine.dispose()
 
 
 def create_signed_test_jwt(claims: dict[str, Any]) -> str:
@@ -154,6 +196,7 @@ async def test_me_returns_401_for_jwt_with_invalid_json() -> None:
         "error": {"code": "invalid_token", "message": "Invalid JWT."},
     }
 
+
 async def test_me_returns_401_for_invalid_jwt() -> None:
     sample = "sample-invalid-value"
     provider = FakeIdentityProvider(
@@ -228,31 +271,40 @@ async def test_me_returns_401_for_jwt_missing_email() -> None:
     }
 
 
-async def test_me_returns_authenticated_user_for_valid_mocked_token() -> None:
+async def test_me_returns_synchronized_local_user_for_valid_mocked_token() -> None:
     sample = "sample-valid-value"
     provider = FakeIdentityProvider(
         user=AuthenticatedUser(
             provider_subject="supabase-user-123",
-            email="user@example.com",
+            email="User@Example.com",
             role="member",
-            metadata={"team": "platform"},
+            metadata={
+                "user_metadata": {
+                    "full_name": "Ada Engineer",
+                    "avatar_url": "https://example.com/avatar.png",
+                },
+            },
         ),
     )
 
-    async with create_test_client(provider) as client:
+    async with create_test_client(provider, use_database=True) as client:
         response = await client.get("/api/v1/me", headers={"Authorization": f"Bearer {sample}"})
 
+    payload = response.json()
     assert provider.last_token == sample
     assert response.status_code == 200
-    assert response.json() == {
-        "success": True,
-        "data": {
-            "id": "supabase-user-123",
-            "email": "user@example.com",
-            "provider": "supabase",
-            "role": "member",
-            "metadata": {"team": "platform"},
-        },
-        "meta": {},
+    assert payload["success"] is True
+    assert payload["meta"] == {}
+    assert UUID(payload["data"]["id"])
+    assert payload["data"] == {
+        **payload["data"],
+        "email": "user@example.com",
+        "display_name": "Ada Engineer",
+        "avatar_url": "https://example.com/avatar.png",
+        "provider": "supabase",
+        "provider_subject": "supabase-user-123",
+        "role": "member",
     }
+    assert payload["data"]["created_at"] is not None
+    assert payload["data"]["last_login_at"] is not None
 

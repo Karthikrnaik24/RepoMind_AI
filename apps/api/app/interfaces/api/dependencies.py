@@ -1,4 +1,4 @@
-"""FastAPI dependency providers.
+﻿"""FastAPI dependency providers.
 
 Providers here compose infrastructure, repositories, and application services
 without routes constructing concrete dependencies directly.
@@ -11,7 +11,13 @@ from typing import Annotated
 from fastapi import Depends
 from sqlalchemy.orm import Session
 
-from app.application.services import ChatService, IndexingService, RepositoryService, UserService
+from app.application.services import (
+    ChatService,
+    IndexingService,
+    RepositoryService,
+    UserService,
+    UserSyncService,
+)
 from app.config.settings import Settings
 from app.config.settings import get_settings as load_settings
 from app.core.logging import get_logger as load_logger
@@ -84,6 +90,14 @@ def get_user_service(
     return UserService(user_repository)
 
 
+def get_user_sync_service(
+    user_repository: Annotated[UserRepository, Depends(get_user_repository)],
+) -> UserSyncService:
+    """Create a user synchronization service for the current request."""
+
+    return UserSyncService(user_repository)
+
+
 def get_repository_service(
     repository_repository: Annotated[
         RepositoryRepository,
@@ -98,7 +112,7 @@ def get_repository_service(
 def get_indexing_service(
     indexing_repository: Annotated[IndexingRepository, Depends(get_indexing_repository)],
 ) -> IndexingService:
-    """Create an indexing service for the current request."""
+    """Create an indexing repository for the current request."""
 
     return IndexingService(indexing_repository)
 

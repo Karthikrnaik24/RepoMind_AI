@@ -1,15 +1,23 @@
-"""Identity response DTOs."""
+﻿"""Identity response DTOs."""
 
-from typing import Any
+from datetime import datetime
+from uuid import UUID
 
 from pydantic import BaseModel
 
 
-class MeData(BaseModel):
-    """Current authenticated user response payload."""
+class MeResponse(BaseModel):
+    """Current synchronized local user response payload."""
 
-    id: str
+    id: UUID
     email: str
+    display_name: str | None = None
+    avatar_url: str | None = None
     provider: str
+    provider_subject: str
     role: str | None = None
-    metadata: dict[str, Any]
+    created_at: datetime
+    last_login_at: datetime | None = None
+
+
+MeData = MeResponse

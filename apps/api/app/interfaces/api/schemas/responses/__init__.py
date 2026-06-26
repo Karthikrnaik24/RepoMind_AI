@@ -1,4 +1,4 @@
-"""Response DTOs."""
+﻿"""Response DTOs."""
 
 from app.interfaces.api.schemas.responses.base import (
     ApiError,
@@ -8,7 +8,7 @@ from app.interfaces.api.schemas.responses.base import (
     success_response,
 )
 from app.interfaces.api.schemas.responses.health import HealthData, StatusData
-from app.interfaces.api.schemas.responses.identity import MeData
+from app.interfaces.api.schemas.responses.identity import MeData, MeResponse
 
 __all__ = [
     "ApiError",
@@ -16,6 +16,7 @@ __all__ = [
     "ApiSuccessResponse",
     "HealthData",
     "MeData",
+    "MeResponse",
     "StatusData",
     "failure_response",
     "success_response",
