@@ -1,11 +1,12 @@
 "use client";
 
 import React from "react";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 import { useAuth } from "../../features/auth/auth-hooks";
 
-export default function LoginPage() {
+function LoginContent() {
   const { signInWithGoogle } = useAuth();
   const searchParams = useSearchParams();
   const hasAuthError = searchParams.get("error") === "authentication_failed";
@@ -41,5 +42,19 @@ export default function LoginPage() {
         </p>
       </section>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="flex min-h-screen items-center justify-center bg-background px-6 text-sm text-muted-foreground">
+          Loading sign in...
+        </main>
+      }
+    >
+      <LoginContent />
+    </Suspense>
   );
 }

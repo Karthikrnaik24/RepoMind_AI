@@ -49,6 +49,19 @@ function AuthActionsProbe() {
   );
 }
 
+function RefreshProbe() {
+  const { refreshSession, user } = useAuth();
+
+  return (
+    <div>
+      <span>{user?.email ?? "signed out"}</span>
+      <button type="button" onClick={() => void refreshSession()}>
+        Refresh
+      </button>
+    </div>
+  );
+}
+
 function createSupabaseMock(session: unknown = null) {
   return {
     auth: {
@@ -97,6 +110,32 @@ describe("AuthProvider", () => {
       provider: "google",
       options: { redirectTo: "http://localhost:3000/auth/callback" },
     });
+  });
+
+  it("restores a session when refreshSession reads persisted Supabase state", async () => {
+    const supabase = createSupabaseMock();
+    supabase.auth.getSession
+      .mockResolvedValueOnce({ data: { session: null } })
+      .mockResolvedValueOnce({
+        data: {
+          session: {
+            access_token: "sample-access-token",
+            user: { email: "restored@example.com" },
+          },
+        },
+      });
+    createBrowserSupabaseClientMock.mockReturnValue(supabase);
+
+    render(
+      <AuthProvider>
+        <RefreshProbe />
+      </AuthProvider>,
+    );
+
+    await screen.findByText("signed out");
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(await screen.findByText("restored@example.com")).toBeInTheDocument();
   });
 
   it("clears session state and redirects home on logout", async () => {

@@ -1,4 +1,5 @@
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 function getSupabasePublicConfig() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,8 +12,21 @@ function getSupabasePublicConfig() {
   return { supabaseUrl, supabaseAnonKey };
 }
 
-export function createServerSupabaseClient() {
+export async function createServerSupabaseClient() {
   const { supabaseUrl, supabaseAnonKey } = getSupabasePublicConfig();
+  const cookieStore = await cookies();
 
-  return createClient(supabaseUrl, supabaseAnonKey);
+  return createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookies: {
+      get(name: string) {
+        return cookieStore.get(name)?.value;
+      },
+      set(name: string, value: string, options) {
+        cookieStore.set({ name, value, ...options });
+      },
+      remove(name: string, options) {
+        cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+      },
+    },
+  });
 }

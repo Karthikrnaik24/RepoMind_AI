@@ -1,6 +1,6 @@
 # Authentication Architecture
 
-Sprint 3.1 establishes the Supabase identity foundation for RepoMind AI. It does not implement login, OAuth callback handling, RBAC enforcement, protected routes, or user synchronization jobs.
+Sprint 3.1 established the Supabase identity foundation for RepoMind AI. Later Sprint 3 work adds protected backend dependency validation and Google OAuth on the frontend while still deferring GitHub login, RBAC enforcement, repository features, and user synchronization jobs.
 
 ## Identity Flow
 
@@ -23,12 +23,12 @@ sequenceDiagram
 Current scope:
 
 - Frontend Supabase SDK clients are configured.
-- The server-side Supabase client is a foundation-only factory and is not cookie-aware yet.
+- The server-side Supabase client uses `@supabase/ssr` with Next.js cookies so OAuth callbacks can persist Supabase session cookies correctly.
 - Backend Supabase configuration is loaded from environment variables.
 - JWT verifier utilities are available and used by the current-user dependency for protected routes.
 - `AuthenticatedUser`, `IdentityProvider`, and `IdentityService` abstractions are prepared.
 - `GET /api/v1/me` is protected through dependency injection.
-- Login, OAuth callbacks, RBAC enforcement, and user synchronization are not implemented yet.
+- Google login and the OAuth callback route are implemented on the frontend; RBAC enforcement and user synchronization are not implemented yet.
 
 ## Identity Domain Model
 
@@ -94,7 +94,7 @@ Responsibilities:
 
 Missing Supabase environment variables must not crash static builds or module imports. The provider handles missing configuration by settling into an unauthenticated state until auth actions are used in a configured environment.
 
-OAuth provider login is not enabled yet. Google and GitHub sign-in buttons are disabled placeholders on `/login`.
+Google OAuth login is enabled through Supabase. GitHub sign-in remains a disabled placeholder on `/login`.
 
 ## Frontend Protected Route Flow
 
@@ -128,7 +128,7 @@ Current frontend session lifecycle:
 6. `signOut()` clears local auth state after Supabase sign-out.
 7. `refreshSession()` reloads the current Supabase session.
 
-The backend API client in `apps/web/api/client.ts` can attach the Supabase access token as `Authorization: Bearer <token>` when a caller provides a session getter. Sprint 3.3 does not call protected repository endpoints.
+The backend API client in `apps/web/api/client.ts` can attach the Supabase access token as `Authorization: Bearer <token>` when a caller provides a session getter. Sprint 3 frontend auth work does not call protected repository endpoints.
 
 ## JWT Validation Pipeline
 
@@ -210,11 +210,11 @@ Sprint 3.1 only prepares the verifier utility, identity provider adapter, identi
 
 The current JWT verification helper is foundation-only. Before production, token verification should use a maintained JWT/JWKS-compatible library or the official Supabase verification approach for the deployed Supabase Auth configuration. Production verification must also include key rotation behavior, issuer and audience validation, clock-skew handling, and security review.
 
-When SSR authentication is implemented, the server-side Supabase client should become cookie-aware so it can read and refresh Supabase sessions safely through Next.js request and response cookies.
+The server-side Supabase client now uses `createServerClient` from `@supabase/ssr` so it can read, set, and remove Supabase cookies through Next.js route-handler cookies. This is required for the `/auth/callback` route to exchange Google OAuth codes and persist sessions across refreshes.
 
 ## OAuth Architecture
 
-Supabase will own external OAuth provider interaction. The expected future OAuth flow is:
+Supabase owns external OAuth provider interaction. Google OAuth currently follows this flow:
 
 1. The frontend starts OAuth through Supabase Auth.
 2. Supabase redirects back to the frontend after provider authorization.
@@ -224,7 +224,7 @@ Supabase will own external OAuth provider interaction. The expected future OAuth
 
 GitHub OAuth for repository installation and access remains a separate future integration. It must not be mixed with application login concerns.
 
-OAuth is not implemented in Sprint 3.1. No frontend route starts OAuth, and no backend route handles OAuth callbacks.
+Google OAuth is implemented on the frontend through Supabase Auth. GitHub OAuth is not implemented. The FastAPI backend does not handle OAuth callbacks.
 
 
 ## Google OAuth Flow
@@ -267,7 +267,7 @@ Responsibilities:
 - Redirect authenticated users to `/dashboard`.
 - Redirect failures to `/login?error=authentication_failed`.
 
-The callback route does not create application users, assign roles, or connect repositories.
+The callback route uses the cookie-aware Supabase SSR client to exchange the OAuth code, write Supabase session cookies through Next.js, and then read the restored session. It does not create application users, assign roles, or connect repositories.
 
 ## User Synchronization Architecture
 
@@ -315,6 +315,7 @@ Backend:
 - `SUPABASE_JWT_SECRET`
 
 The service role key and JWT secret must never be exposed to the browser, committed to source control, logged, or returned by an API.
+
 
 
 
