@@ -1,6 +1,7 @@
 """Registered repository routes."""
 
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
 
@@ -66,3 +67,21 @@ def list_registered_repositories(
         [RegisteredRepositoryResponse.from_orm(repository) for repository in repositories],
         meta={"count": len(repositories)},
     )
+
+
+@router.get("/{repository_id}", response_model=ApiSuccessResponse[RegisteredRepositoryResponse])
+def get_registered_repository(
+    repository_id: UUID,
+    synced_identity: Annotated[SyncedUserIdentity, Depends(get_current_synced_user)],
+    registration_service: Annotated[
+        RepositoryRegistrationService,
+        Depends(get_repository_registration_service),
+    ],
+) -> dict:
+    """Return one owner-scoped registered repository dashboard payload."""
+
+    repository = registration_service.get_registered_repository(
+        owner_user_id=synced_identity.user.id,
+        repository_id=repository_id,
+    )
+    return success_response(RegisteredRepositoryResponse.from_orm(repository))

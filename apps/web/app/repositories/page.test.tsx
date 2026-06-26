@@ -69,6 +69,10 @@ describe("RepositoriesPage", () => {
     await waitFor(() => expect(screen.getByText("RepoMind_AI")).toBeInTheDocument());
     expect(screen.getByText("Karthikrnaik24/RepoMind_AI")).toBeInTheDocument();
     expect(screen.getByText("PENDING")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Dashboard" })).toHaveAttribute(
+      "href",
+      "/repositories/local-repository-id",
+    );
     expect(getRegisteredRepositoriesMock).toHaveBeenCalledWith(
       expect.objectContaining({ getSession: expect.any(Function) }),
     );

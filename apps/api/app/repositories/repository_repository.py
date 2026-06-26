@@ -29,6 +29,20 @@ class RepositoryRepository(BaseRepository[Repository]):
         )
         return self.session.execute(statement).scalar_one_or_none()
 
+    def get_by_owner_and_id(
+        self,
+        *,
+        owner_user_id: UUID,
+        repository_id: UUID,
+    ) -> Repository | None:
+        """Return a registered repository by local owner and repository id."""
+
+        statement = select(Repository).where(
+            Repository.owner_user_id == owner_user_id,
+            Repository.id == repository_id,
+        )
+        return self.session.execute(statement).scalar_one_or_none()
+
     def get_by_owner_and_provider_repository_id(
         self,
         *,

@@ -88,6 +88,25 @@ class RepositoryRegistrationService:
             session.rollback()
             raise
 
+    def get_registered_repository(
+        self,
+        *,
+        owner_user_id: UUID,
+        repository_id: UUID,
+    ) -> Repository:
+        """Return an owner-scoped registered repository or raise a safe 404."""
+
+        repository = self.repository_repository.get_by_owner_and_id(
+            owner_user_id=owner_user_id,
+            repository_id=repository_id,
+        )
+        if repository is None:
+            raise ResourceNotFoundException(
+                "Repository was not found.",
+                code="repository_not_found",
+            )
+        return repository
+
     def list_registered_repositories(self, owner_user_id: UUID) -> list[Repository]:
         """Return repositories registered by a local user."""
 

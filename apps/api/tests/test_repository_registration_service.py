@@ -221,3 +221,51 @@ def test_list_registered_repositories_returns_only_user_owned_repositories(
     repositories = service.list_registered_repositories(owner.id)
 
     assert repositories == [repository]
+
+def test_get_registered_repository_returns_owner_scoped_repository(
+    db_session: Session,
+    owner: User,
+    authenticated_user: AuthenticatedUser,
+) -> None:
+    service = create_service(RepositorySummary.from_github_api(repository_payload()), db_session)
+    repository = service.register_repository(
+        owner_user_id=owner.id,
+        authenticated_user=authenticated_user,
+        registration_input=registration_input(),
+    )
+
+    result = service.get_registered_repository(
+        owner_user_id=owner.id,
+        repository_id=repository.id,
+    )
+
+    assert result is repository
+
+
+def test_get_registered_repository_hides_unowned_repository(
+    db_session: Session,
+    owner: User,
+    authenticated_user: AuthenticatedUser,
+) -> None:
+    other_owner = User(
+        email="other-detail@example.com",
+        auth_provider="supabase",
+        auth_provider_user_id="other-detail-user-123",
+        status="active",
+    )
+    db_session.add(other_owner)
+    db_session.flush()
+    service = create_service(RepositorySummary.from_github_api(repository_payload()), db_session)
+    repository = service.register_repository(
+        owner_user_id=owner.id,
+        authenticated_user=authenticated_user,
+        registration_input=registration_input(),
+    )
+
+    with pytest.raises(ResourceNotFoundException) as exc_info:
+        service.get_registered_repository(
+            owner_user_id=other_owner.id,
+            repository_id=repository.id,
+        )
+
+    assert exc_info.value.code == "repository_not_found"

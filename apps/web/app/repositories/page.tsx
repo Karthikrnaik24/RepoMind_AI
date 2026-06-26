@@ -71,6 +71,15 @@ function RegisteredRepositoryCard({ repository }: { repository: RegisteredReposi
           Registered {formatRegisteredAt(repository.registered_at)}
         </span>
       </div>
+
+      <div className="mt-5 flex justify-end border-t border-border pt-4">
+        <Link
+          href={`/repositories/${repository.id}`}
+          className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30"
+        >
+          Open Dashboard
+        </Link>
+      </div>
     </article>
   );
 }

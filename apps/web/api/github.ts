@@ -195,3 +195,20 @@ export async function getRegisteredRepositories({
   const payload = await parseSuccess<RegisteredRepository[]>(response);
   return payload.data;
 }
+
+export async function getRegisteredRepository(
+  { baseUrl, fetcher, getSession }: GitHubApiOptions,
+  repositoryId: string,
+): Promise<RegisteredRepository> {
+  const client = createApiClient({ baseUrl, fetcher, getSession });
+  const response = await client.request(`/api/v1/repositories/${repositoryId}`, {
+    authenticated: true,
+  });
+
+  if (!response.ok) {
+    throw new Error("Registered repository request failed.");
+  }
+
+  const payload = await parseSuccess<RegisteredRepository>(response);
+  return payload.data;
+}
