@@ -1,3 +1,4 @@
+﻿from app.domain.authorization import Role
 from app.infrastructure.database.models import User, UserProfile
 
 
@@ -30,8 +31,10 @@ def test_user_model_constraints_and_indexes_are_declared() -> None:
     assert "uq_users_email_active" in index_names
     assert "uq_users_auth_provider_auth_provider_user_id" in index_names
     assert "ix_users_status" in index_names
+    assert "ix_users_role" in index_names
     assert "ix_users_created_at" in index_names
     assert "ck_users_status_valid" in constraint_names
+    assert "ck_users_role_valid" in constraint_names
 
 
 def test_user_profile_model_constraints_and_indexes_are_declared() -> None:
@@ -40,3 +43,10 @@ def test_user_profile_model_constraints_and_indexes_are_declared() -> None:
 
     assert "ix_user_profiles_display_name" in index_names
     assert "uq_user_profiles_user_id" in constraint_names
+
+
+def test_user_role_defaults_to_user() -> None:
+    role_column = User.__table__.columns["role"]
+
+    assert role_column.default is not None
+    assert role_column.default.arg == Role.USER.value

@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import hashlib
 import hmac
 import json
@@ -303,8 +303,7 @@ async def test_me_returns_synchronized_local_user_for_valid_mocked_token() -> No
         "avatar_url": "https://example.com/avatar.png",
         "provider": "supabase",
         "provider_subject": "supabase-user-123",
-        "role": "member",
+        "role": "user",
     }
     assert payload["data"]["created_at"] is not None
     assert payload["data"]["last_login_at"] is not None
-

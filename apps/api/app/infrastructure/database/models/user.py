@@ -1,4 +1,4 @@
-"""User and profile ORM models.
+﻿"""User and profile ORM models.
 
 These models map only the `users` and `user_profiles` tables from
 docs/DATABASE.md. They intentionally contain no authentication or CRUD logic.
@@ -11,6 +11,7 @@ from uuid import UUID
 from sqlalchemy import CheckConstraint, ForeignKey, Index, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.domain.authorization import Role
 from app.infrastructure.database.base import BaseModel, SoftDeleteBaseModel
 
 if TYPE_CHECKING:
@@ -29,6 +30,10 @@ class User(SoftDeleteBaseModel):
             "status IN ('active', 'suspended', 'deleted')",
             name="status_valid",
         ),
+        CheckConstraint(
+            "role IN ('user', 'admin')",
+            name="role_valid",
+        ),
         Index(
             "uq_users_email_active",
             "email",
@@ -42,6 +47,7 @@ class User(SoftDeleteBaseModel):
             unique=True,
         ),
         Index("ix_users_status", "status"),
+        Index("ix_users_role", "role"),
         Index("ix_users_created_at", "created_at"),
     )
 
@@ -49,6 +55,7 @@ class User(SoftDeleteBaseModel):
     auth_provider: Mapped[str] = mapped_column(String(50), nullable=False)
     auth_provider_user_id: Mapped[str] = mapped_column(String(255), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="active")
+    role: Mapped[str] = mapped_column(String(30), nullable=False, default=Role.USER.value)
     last_login_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     profile: Mapped["UserProfile | None"] = relationship(

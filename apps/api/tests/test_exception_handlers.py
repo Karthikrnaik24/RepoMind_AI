@@ -56,7 +56,7 @@ async def test_authorization_exception_handler_returns_standard_403_response() -
     assert response.json() == {
         "success": False,
         "error": {
-            "code": "authorization_error",
+            "code": "forbidden",
             "message": "Forbidden test action.",
         },
     }

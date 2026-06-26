@@ -1,4 +1,4 @@
-"""Typed application exceptions.
+﻿"""Typed application exceptions.
 
 Routes and services should raise these exceptions instead of leaking framework
 or persistence exceptions through the API boundary.
@@ -45,8 +45,8 @@ class AuthorizationException(BaseAppException):
     """Raised when a principal is not allowed to perform an action."""
 
     status_code = 403
-    code = "authorization_error"
-    message = "You are not authorized to perform this action."
+    code = "forbidden"
+    message = "You do not have permission."
 
 
 class ResourceNotFoundException(BaseAppException):

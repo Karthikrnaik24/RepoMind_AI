@@ -1,6 +1,12 @@
-from unittest.mock import Mock
+﻿from unittest.mock import Mock
 
-from app.application.services import ChatService, IndexingService, RepositoryService, UserService
+from app.application.services import (
+    ChatService,
+    IndexingService,
+    RepositoryService,
+    UserService,
+    UserSyncService,
+)
 from app.config.settings import get_settings
 from app.infrastructure.database.models import User
 from app.interfaces.api import dependencies
@@ -53,12 +59,15 @@ def test_service_providers_inject_repository_dependencies() -> None:
     chat_repository = ChatRepository(session)
 
     user_service = dependencies.get_user_service(user_repository)
+    user_sync_service = dependencies.get_user_sync_service(user_repository)
     repository_service = dependencies.get_repository_service(repository_repository)
     indexing_service = dependencies.get_indexing_service(indexing_repository)
     chat_service = dependencies.get_chat_service(chat_repository)
 
     assert isinstance(user_service, UserService)
     assert user_service.user_repository is user_repository
+    assert isinstance(user_sync_service, UserSyncService)
+    assert user_sync_service.user_repository is user_repository
     assert isinstance(repository_service, RepositoryService)
     assert repository_service.repository_repository is repository_repository
     assert isinstance(indexing_service, IndexingService)

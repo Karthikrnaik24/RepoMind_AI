@@ -320,6 +320,52 @@ Synchronization rules:
 - Raw Supabase access tokens and refresh tokens are never stored in application tables.
 - Audit logging for identity-sensitive sync events is deferred to a later sprint.
 
+## Authorization and RBAC Foundation
+
+Sprint 3.7 introduces a role-based authorization foundation after authentication and user synchronization.
+
+```mermaid
+flowchart TD
+    Request["Request"] --> Authentication["Authentication: verify Supabase JWT"]
+    Authentication --> Sync["User Synchronization: local users/user_profiles"]
+    Sync --> Authorization["Authorization: require_permission"]
+    Authorization --> Permission["Permission check"]
+    Permission --> Route["Protected route executes"]
+```
+
+Authorization order:
+
+1. Authentication validates the Supabase JWT and produces `AuthenticatedUser`.
+2. User synchronization resolves or creates the local `users` row and `user_profiles` row.
+3. Authorization evaluates the local user's stored role against a permission policy.
+4. The route executes only when the required permission is granted.
+
+Initial roles:
+
+| Role | Description |
+| --- | --- |
+| `user` | Default role for synchronized users. Can view and edit profile-level resources and initiate future repository connection flows. |
+| `admin` | Administrative role. Includes all current user permissions plus access to admin-only endpoints. |
+
+Initial permissions:
+
+| Permission | Purpose |
+| --- | --- |
+| `view_profile` | Read the current user's local profile identity. |
+| `edit_profile` | Future profile preference updates. |
+| `connect_repository` | Future repository connection workflows. |
+| `view_admin_panel` | Admin-only operational/admin surfaces. |
+
+Current protected authorization probe:
+
+- `GET /api/v1/admin/ping` requires `view_admin_panel`, which is granted only to `admin`.
+
+Failure behavior:
+
+- Missing or invalid authentication returns `401`.
+- Authenticated users without the required permission return `403` with code `forbidden` and message `You do not have permission.`
+
+RBAC enforcement remains intentionally small in Sprint 3.7. GitHub integration, repository authorization, organization roles, and the admin dashboard are not implemented.
 ## Future RBAC Design
 
 RBAC is intentionally deferred. Future authorization should support:
