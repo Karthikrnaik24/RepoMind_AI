@@ -3,6 +3,7 @@
 import React from "react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { Session, SupabaseClient, User } from "@supabase/supabase-js";
 
 import { createBrowserSupabaseClient } from "../../lib/supabase/client";
@@ -13,7 +14,16 @@ type AuthProviderProps = {
   children: ReactNode;
 };
 
+function getOAuthRedirectUrl() {
+  if (typeof window === "undefined") {
+    return "/auth/callback";
+  }
+
+  return `${window.location.origin}/auth/callback`;
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
+  const router = useRouter();
   const supabaseRef = useRef<SupabaseClient | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -42,6 +52,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [getSupabaseClient]);
 
+  const signInWithGoogle = useCallback(async () => {
+    const supabase = getSupabaseClient();
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: getOAuthRedirectUrl(),
+      },
+    });
+  }, [getSupabaseClient]);
+
   const signOut = useCallback(async () => {
     try {
       const supabase = getSupabaseClient();
@@ -50,8 +70,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setSession(null);
       setUser(null);
       setLoading(false);
+      router.replace("/");
     }
-  }, [getSupabaseClient]);
+  }, [getSupabaseClient, router]);
 
   useEffect(() => {
     let isMounted = true;
@@ -96,8 +117,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [getSupabaseClient]);
 
   const value = useMemo(
-    () => ({ loading, refreshSession, session, signOut, user }),
-    [loading, refreshSession, session, signOut, user],
+    () => ({ loading, refreshSession, session, signInWithGoogle, signOut, user }),
+    [loading, refreshSession, session, signInWithGoogle, signOut, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

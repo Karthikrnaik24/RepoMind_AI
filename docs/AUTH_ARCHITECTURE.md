@@ -226,6 +226,49 @@ GitHub OAuth for repository installation and access remains a separate future in
 
 OAuth is not implemented in Sprint 3.1. No frontend route starts OAuth, and no backend route handles OAuth callbacks.
 
+
+## Google OAuth Flow
+
+Sprint 3.4B enables Google sign-in through Supabase Auth from the frontend only.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Web as Next.js Login Page
+    participant Supabase as Supabase Auth
+    participant Callback as /auth/callback
+    participant Dashboard as /dashboard
+
+    User->>Web: Click Continue with Google
+    Web->>Supabase: signInWithOAuth(provider=google)
+    Supabase-->>Callback: Redirect with auth result
+    Callback->>Supabase: Exchange auth code when present
+    Callback->>Supabase: Restore current session
+    Callback-->>Dashboard: Redirect authenticated user
+```
+
+Current scope:
+
+- Google OAuth is enabled through Supabase.
+- GitHub OAuth is not enabled yet.
+- No repository features are introduced.
+- No RBAC enforcement is introduced.
+- Users are not synchronized into the application database yet.
+
+## OAuth Callback Flow
+
+`/auth/callback` is the frontend callback route for Supabase OAuth redirects.
+
+Responsibilities:
+
+- Read the OAuth callback URL.
+- Exchange the auth code when Supabase provides one.
+- Restore the current Supabase session.
+- Redirect authenticated users to `/dashboard`.
+- Redirect failures to `/login?error=authentication_failed`.
+
+The callback route does not create application users, assign roles, or connect repositories.
+
 ## User Synchronization Architecture
 
 Future user synchronization should:
@@ -272,5 +315,6 @@ Backend:
 - `SUPABASE_JWT_SECRET`
 
 The service role key and JWT secret must never be exposed to the browser, committed to source control, logged, or returned by an API.
+
 
 
