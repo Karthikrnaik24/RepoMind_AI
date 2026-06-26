@@ -1,4 +1,4 @@
-﻿"""FastAPI dependency providers.
+"""FastAPI dependency providers.
 
 Providers here compose infrastructure, repositories, and application services
 without routes constructing concrete dependencies directly.
@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.application.services import (
     ChatService,
+    GitHubService,
     IndexingService,
     RepositoryService,
     UserService,
@@ -23,6 +24,7 @@ from app.config.settings import get_settings as load_settings
 from app.core.logging import get_logger as load_logger
 from app.infrastructure.auth import SupabaseClient, create_supabase_client
 from app.infrastructure.database.session import get_db_session
+from app.infrastructure.github import GitHubClient, SupabaseLinkedIdentityGitHubTokenProvider
 from app.repositories import (
     ChatRepository,
     IndexingRepository,
@@ -123,3 +125,40 @@ def get_chat_service(
     """Create a chat service for the current request."""
 
     return ChatService(chat_repository)
+
+
+def get_github_client(
+    settings: Annotated[Settings, Depends(get_settings)],
+    logger: Annotated[logging.Logger, Depends(get_logger)],
+) -> Generator[GitHubClient, None, None]:
+    """Yield a request-scoped GitHub API client for future integrations."""
+
+    client = GitHubClient(
+        base_url=settings.github_api_base_url,
+        timeout_seconds=settings.github_api_timeout_seconds,
+        max_retries=settings.github_api_max_retries,
+        retry_backoff_seconds=settings.github_api_retry_backoff_seconds,
+        logger=logger,
+    )
+    try:
+        yield client
+    finally:
+        client.close()
+
+
+def get_github_token_provider() -> SupabaseLinkedIdentityGitHubTokenProvider:
+    """Create the linked GitHub identity token provider."""
+
+    return SupabaseLinkedIdentityGitHubTokenProvider()
+
+
+def get_github_service(
+    github_client: Annotated[GitHubClient, Depends(get_github_client)],
+    token_provider: Annotated[
+        SupabaseLinkedIdentityGitHubTokenProvider,
+        Depends(get_github_token_provider),
+    ],
+) -> GitHubService:
+    """Create the GitHub application service for future use cases."""
+
+    return GitHubService(github_client, token_provider)

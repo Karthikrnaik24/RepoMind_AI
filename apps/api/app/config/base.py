@@ -35,6 +35,18 @@ class BaseAppSettings(BaseSettings):
         alias="SUPABASE_SERVICE_ROLE_KEY",
     )
     supabase_jwt_secret: SecretStr = Field(default=SecretStr(""), alias="SUPABASE_JWT_SECRET")
+    github_api_base_url: str = Field(default="https://api.github.com", alias="GITHUB_API_BASE_URL")
+    github_api_timeout_seconds: float = Field(
+        default=10.0,
+        alias="GITHUB_API_TIMEOUT_SECONDS",
+        gt=0,
+    )
+    github_api_max_retries: int = Field(default=2, alias="GITHUB_API_MAX_RETRIES", ge=0)
+    github_api_retry_backoff_seconds: float = Field(
+        default=0.25,
+        alias="GITHUB_API_RETRY_BACKOFF_SECONDS",
+        ge=0,
+    )
     log_level: str = Field(default="INFO", alias="LOG_LEVEL")
     log_json: bool = Field(default=True, alias="LOG_JSON")
 
