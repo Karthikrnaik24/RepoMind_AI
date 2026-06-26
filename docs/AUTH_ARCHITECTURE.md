@@ -269,6 +269,44 @@ Responsibilities:
 
 The callback route uses the cookie-aware Supabase SSR client to exchange the OAuth code, write Supabase session cookies through Next.js, and then read the restored session. It does not create application users, assign roles, or connect repositories.
 
+## Linked Provider Architecture
+
+Sprint 3.8B adds GitHub account linking through Supabase identity linking. This is separate from future GitHub repository access.
+
+Identity model:
+
+- Google remains the current sign-in provider for application authentication.
+- GitHub can be linked as an additional Supabase identity on the same authenticated Supabase user.
+- Linking must not create a second RepoMind AI account or local `users` row.
+- The frontend reads `user.identities` from the refreshed Supabase session to display connected providers.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Dashboard as Dashboard
+    participant Supabase as Supabase Auth
+    participant Callback as /auth/callback
+
+    User->>Dashboard: Click Connect GitHub
+    Dashboard->>Supabase: auth.linkIdentity(provider=github)
+    Supabase-->>Callback: Redirect after GitHub OAuth
+    Callback->>Supabase: Exchange code and restore session cookies
+    Callback-->>Dashboard: Redirect to /dashboard
+    Dashboard->>Supabase: Refresh current session
+    Dashboard-->>User: Show Google and GitHub as connected
+```
+
+Error handling:
+
+- OAuth cancellation returns the user to the dashboard with a friendly linking message.
+- OAuth failure returns the user to the dashboard when the existing session survives.
+- Missing or invalid sessions still redirect to `/login?error=authentication_failed`.
+- Identity already linked and provider unavailable states are displayed as safe user-facing messages.
+
+Important boundary:
+
+- GitHub identity linking is not GitHub repository integration.
+- Sprint 3.8B does not call the GitHub REST API, list repositories, register repositories, clone code, or request repository data.
 ## User Synchronization Architecture
 
 Sprint 3.6 synchronizes verified Supabase identities into local PostgreSQL records when protected backend routes need the current user.

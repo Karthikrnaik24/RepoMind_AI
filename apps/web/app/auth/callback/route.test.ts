@@ -1,4 +1,4 @@
-import { NextRequest } from "next/server";
+﻿import { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { createServerSupabaseClientMock } = vi.hoisted(() => ({
@@ -26,7 +26,9 @@ describe("GET /auth/callback", () => {
       },
     });
 
-    const response = await GET(new NextRequest("http://localhost:3000/auth/callback?code=sample-code"));
+    const response = await GET(
+      new NextRequest("http://localhost:3000/auth/callback?code=sample-code"),
+    );
 
     expect(createServerSupabaseClientMock).toHaveBeenCalledOnce();
     expect(exchangeCodeForSessionMock).toHaveBeenCalledWith("sample-code");
@@ -34,18 +36,37 @@ describe("GET /auth/callback", () => {
     expect(response.headers.get("location")).toBe("http://localhost:3000/dashboard");
   });
 
-  it("redirects callback exchange failures to login", async () => {
+  it("redirects callback exchange failures to login when no session exists", async () => {
     createServerSupabaseClientMock.mockResolvedValue({
       auth: {
         exchangeCodeForSession: vi.fn(async () => ({ error: new Error("failed") })),
-        getSession: vi.fn(),
+        getSession: vi.fn(async () => ({ data: { session: null } })),
       },
     });
 
-    const response = await GET(new NextRequest("http://localhost:3000/auth/callback?code=bad-code"));
+    const response = await GET(
+      new NextRequest("http://localhost:3000/auth/callback?code=bad-code"),
+    );
 
     expect(response.headers.get("location")).toBe(
       "http://localhost:3000/login?error=authentication_failed",
+    );
+  });
+
+  it("redirects link failures to dashboard when the existing session survives", async () => {
+    createServerSupabaseClientMock.mockResolvedValue({
+      auth: {
+        exchangeCodeForSession: vi.fn(),
+        getSession: vi.fn(async () => ({ data: { session: { access_token: "sample" } } })),
+      },
+    });
+
+    const response = await GET(
+      new NextRequest("http://localhost:3000/auth/callback?error=access_denied"),
+    );
+
+    expect(response.headers.get("location")).toBe(
+      "http://localhost:3000/dashboard?github_link_error=oauth_cancelled",
     );
   });
 
@@ -57,7 +78,9 @@ describe("GET /auth/callback", () => {
       },
     });
 
-    const response = await GET(new NextRequest("http://localhost:3000/auth/callback?code=sample-code"));
+    const response = await GET(
+      new NextRequest("http://localhost:3000/auth/callback?code=sample-code"),
+    );
 
     expect(response.headers.get("location")).toBe(
       "http://localhost:3000/login?error=authentication_failed",
@@ -67,7 +90,9 @@ describe("GET /auth/callback", () => {
   it("redirects unexpected callback errors to login without exposing internals", async () => {
     createServerSupabaseClientMock.mockRejectedValue(new Error("cookie failure"));
 
-    const response = await GET(new NextRequest("http://localhost:3000/auth/callback?code=sample-code"));
+    const response = await GET(
+      new NextRequest("http://localhost:3000/auth/callback?code=sample-code"),
+    );
 
     expect(response.headers.get("location")).toBe(
       "http://localhost:3000/login?error=authentication_failed",

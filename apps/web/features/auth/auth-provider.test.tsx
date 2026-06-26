@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 
 import React from "react";
 import "@testing-library/jest-dom/vitest";
@@ -34,13 +34,16 @@ function LoadingProbe() {
 }
 
 function AuthActionsProbe() {
-  const { signInWithGoogle, signOut, user } = useAuth();
+  const { linkGitHubIdentity, signInWithGoogle, signOut, user } = useAuth();
 
   return (
     <div>
       <span>{user?.email ?? "signed out"}</span>
       <button type="button" onClick={() => void signInWithGoogle()}>
         Google
+      </button>
+      <button type="button" onClick={() => void linkGitHubIdentity()}>
+        GitHub
       </button>
       <button type="button" onClick={() => void signOut()}>
         Sign out
@@ -66,6 +69,7 @@ function createSupabaseMock(session: unknown = null) {
   return {
     auth: {
       getSession: vi.fn(async () => ({ data: { session } })),
+      linkIdentity: vi.fn(async () => ({ data: {}, error: null })),
       onAuthStateChange: vi.fn(() => ({
         data: { subscription: { unsubscribe: vi.fn() } },
       })),
@@ -112,7 +116,29 @@ describe("AuthProvider", () => {
     });
   });
 
-  it("restores a session when refreshSession reads persisted Supabase state", async () => {
+  it("starts GitHub identity linking with the callback redirect", async () => {
+    const supabase = createSupabaseMock({
+      access_token: "sample-access-token",
+      user: { email: "engineer@example.com" },
+    });
+    createBrowserSupabaseClientMock.mockReturnValue(supabase);
+
+    render(
+      <AuthProvider>
+        <AuthActionsProbe />
+      </AuthProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
+
+    await waitFor(() => expect(supabase.auth.linkIdentity).toHaveBeenCalledOnce());
+    expect(supabase.auth.linkIdentity).toHaveBeenCalledWith({
+      provider: "github",
+      options: { redirectTo: "http://localhost:3000/auth/callback" },
+    });
+  });
+
+  it("restores linked identities when refreshSession reads persisted Supabase state", async () => {
     const supabase = createSupabaseMock();
     supabase.auth.getSession
       .mockResolvedValueOnce({ data: { session: null } })
@@ -120,7 +146,10 @@ describe("AuthProvider", () => {
         data: {
           session: {
             access_token: "sample-access-token",
-            user: { email: "restored@example.com" },
+            user: {
+              email: "restored@example.com",
+              identities: [{ provider: "google" }, { provider: "github" }],
+            },
           },
         },
       });

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import type { ReactNode } from "react";
@@ -22,12 +22,29 @@ function getOAuthRedirectUrl() {
   return `${window.location.origin}/auth/callback`;
 }
 
+function getFriendlyAuthError(message: string | undefined) {
+  if (!message) {
+    return "The identity provider is unavailable. Please try again.";
+  }
+
+  const normalized = message.toLowerCase();
+  if (normalized.includes("already") && normalized.includes("linked")) {
+    return "This GitHub account is already linked.";
+  }
+  if (normalized.includes("cancel")) {
+    return "GitHub linking was cancelled.";
+  }
+
+  return "GitHub linking could not be started. Please try again.";
+}
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const supabaseRef = useRef<SupabaseClient | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const getSupabaseClient = useCallback(() => {
     if (!supabaseRef.current) {
@@ -35,6 +52,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     return supabaseRef.current;
+  }, []);
+
+  const clearAuthError = useCallback(() => {
+    setAuthError(null);
   }, []);
 
   const refreshSession = useCallback(async () => {
@@ -54,12 +75,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const signInWithGoogle = useCallback(async () => {
     const supabase = getSupabaseClient();
+    setAuthError(null);
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         redirectTo: getOAuthRedirectUrl(),
       },
     });
+  }, [getSupabaseClient]);
+
+  const linkGitHubIdentity = useCallback(async () => {
+    const supabase = getSupabaseClient();
+    setAuthError(null);
+    const { error } = await supabase.auth.linkIdentity({
+      provider: "github",
+      options: {
+        redirectTo: getOAuthRedirectUrl(),
+      },
+    });
+
+    if (error) {
+      setAuthError(getFriendlyAuthError(error.message));
+    }
   }, [getSupabaseClient]);
 
   const signOut = useCallback(async () => {
@@ -69,6 +106,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       setSession(null);
       setUser(null);
+      setAuthError(null);
       setLoading(false);
       router.replace("/");
     }
@@ -117,8 +155,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [getSupabaseClient]);
 
   const value = useMemo(
-    () => ({ loading, refreshSession, session, signInWithGoogle, signOut, user }),
-    [loading, refreshSession, session, signInWithGoogle, signOut, user],
+    () => ({
+      authError,
+      clearAuthError,
+      linkGitHubIdentity,
+      loading,
+      refreshSession,
+      session,
+      signInWithGoogle,
+      signOut,
+      user,
+    }),
+    [
+      authError,
+      clearAuthError,
+      linkGitHubIdentity,
+      loading,
+      refreshSession,
+      session,
+      signInWithGoogle,
+      signOut,
+      user,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
