@@ -1,14 +1,25 @@
 """Repository and branch ORM models.
 
-These models map only the `repositories` and `repository_branches` tables from
-docs/DATABASE.md. They intentionally contain no repository business logic.
+These models map repository metadata from docs/DATABASE.md and the registered
+repository management fields used by the platform. They intentionally contain
+no repository business logic.
 """
 
 from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Boolean, CheckConstraint, ForeignKey, Index, String, Text, text
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.base import BaseModel
@@ -30,6 +41,10 @@ class Repository(BaseModel):
             "visibility IN ('public', 'private', 'internal')",
             name="visibility_valid",
         ),
+        CheckConstraint(
+            "sync_status IN ('PENDING', 'READY', 'FAILED')",
+            name="sync_status_valid",
+        ),
         Index(
             "uq_repositories_provider_provider_repository_id",
             "provider",
@@ -40,6 +55,8 @@ class Repository(BaseModel):
         Index("ix_repositories_full_name", "full_name"),
         Index("ix_repositories_last_indexed_at", "last_indexed_at"),
         Index("ix_repositories_archived_at", "archived_at"),
+        Index("ix_repositories_registered_at", "registered_at"),
+        Index("ix_repositories_sync_status", "sync_status"),
     )
 
     owner_user_id: Mapped[UUID] = mapped_column(
@@ -53,8 +70,16 @@ class Repository(BaseModel):
     full_name: Mapped[str] = mapped_column(String(511), nullable=False)
     default_branch: Mapped[str] = mapped_column(String(255), nullable=False)
     visibility: Mapped[str] = mapped_column(String(30), nullable=False)
+    language: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
     clone_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     web_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    sync_status: Mapped[str] = mapped_column(String(30), nullable=False, default="PENDING")
+    registered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
     last_indexed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(nullable=True)
 

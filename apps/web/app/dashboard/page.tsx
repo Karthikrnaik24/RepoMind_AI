@@ -18,9 +18,12 @@ import {
 
 import {
   getGitHubRepositories,
+  getRegisteredRepositories,
   GitHubRepositoryDiscoveryError,
+  registerGitHubRepository,
   type GitHubRepositorySummary,
   type GitHubRepositoryVisibility,
+  type RegisteredRepository,
 } from "../../api/github";
 import { useAuth } from "../../features/auth/auth-hooks";
 import { RequireAuth } from "../../features/auth/require-auth";
@@ -38,6 +41,9 @@ const repositoryDiscoveryErrorMessages = {
   rate_limited: "GitHub rate limit exceeded. Please wait before trying again.",
   token_expired: "Your GitHub session needs to be refreshed. Please sign in again if retry fails.",
 };
+
+const repositoryRegistrationErrorMessage =
+  "Repository registration failed. Please verify access and retry.";
 
 function getDisplayName(user: User | null) {
   const fullName = user?.user_metadata?.full_name;
@@ -162,10 +168,18 @@ function RepositorySkeletons() {
 }
 
 type RepositoryCardProps = {
+  isRegistered: boolean;
+  isRegistering: boolean;
+  onRegister: (repository: GitHubRepositorySummary) => void;
   repository: GitHubRepositorySummary;
 };
 
-function RepositoryCard({ repository }: RepositoryCardProps) {
+function RepositoryCard({
+  isRegistered,
+  isRegistering,
+  onRegister,
+  repository,
+}: RepositoryCardProps) {
   const visibility = repository.visibility ?? (repository.private ? "private" : "public");
 
   return (
@@ -193,14 +207,22 @@ function RepositoryCard({ repository }: RepositoryCardProps) {
             <p className="mt-1 truncate text-xs text-muted-foreground">{repository.owner.login}</p>
           </div>
         </div>
-        <span className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-secondary px-2 py-1 text-xs font-medium capitalize text-secondary-foreground">
-          {repository.private ? (
-            <Lock aria-hidden="true" className="h-3 w-3" />
-          ) : (
-            <Globe2 aria-hidden="true" className="h-3 w-3" />
-          )}
-          {visibility}
-        </span>
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <span className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-secondary px-2 py-1 text-xs font-medium capitalize text-secondary-foreground">
+            {repository.private ? (
+              <Lock aria-hidden="true" className="h-3 w-3" />
+            ) : (
+              <Globe2 aria-hidden="true" className="h-3 w-3" />
+            )}
+            {visibility}
+          </span>
+          {isRegistered ? (
+            <span className="inline-flex w-fit items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+              <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />
+              Registered
+            </span>
+          ) : null}
+        </div>
       </div>
 
       <p className="mt-4 text-sm text-muted-foreground">
@@ -218,6 +240,17 @@ function RepositoryCard({ repository }: RepositoryCardProps) {
         <span className="rounded-md border border-border bg-background px-2 py-1">
           Updated {formatUpdatedAt(repository.updated_at)}
         </span>
+      </div>
+
+      <div className="mt-5 flex justify-end border-t border-border pt-4">
+        <button
+          type="button"
+          disabled={isRegistered || isRegistering}
+          onClick={() => onRegister(repository)}
+          className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {isRegistered ? "Registered ?" : isRegistering ? "Registering..." : "Register Repository"}
+        </button>
       </div>
     </article>
   );
@@ -238,19 +271,27 @@ function getRepositoryErrorMessage(error: unknown) {
 
 function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProps) {
   const [repositories, setRepositories] = useState<GitHubRepositorySummary[]>([]);
+  const [registeredRepositories, setRegisteredRepositories] = useState<RegisteredRepository[]>([]);
   const [search, setSearch] = useState("");
   const [visibility, setVisibility] = useState<GitHubRepositoryVisibility>("all");
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [registrationError, setRegistrationError] = useState<string | null>(null);
+  const [registeringIds, setRegisteringIds] = useState<Set<number>>(() => new Set());
   const [retryAttempt, setRetryAttempt] = useState(0);
 
+  const registeredRepositoryIds = useMemo(
+    () => new Set(registeredRepositories.map((repository) => repository.github_repository_id)),
+    [registeredRepositories],
+  );
   const canGoNext = repositories.length >= 12;
   const hasActiveFilter = Boolean(search.trim()) || visibility !== "all";
 
   useEffect(() => {
     if (!session || !isGitHubConnected) {
       setRepositories([]);
+      setRegisteredRepositories([]);
       setError(null);
       return;
     }
@@ -260,12 +301,16 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
       setLoading(true);
       setError(null);
       try {
-        const result = await getGitHubRepositories(
-          { getSession: async () => currentSession },
-          { page, perPage: 12, search, visibility },
-        );
+        const [repositoryResult, registeredResult] = await Promise.all([
+          getGitHubRepositories(
+            { getSession: async () => currentSession },
+            { page, perPage: 12, search, visibility },
+          ),
+          getRegisteredRepositories({ getSession: async () => currentSession }),
+        ]);
         if (isMounted) {
-          setRepositories(result.data);
+          setRepositories(repositoryResult.data);
+          setRegisteredRepositories(registeredResult);
         }
       } catch (caughtError) {
         if (isMounted) {
@@ -307,6 +352,39 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
     };
   }, [hasActiveFilter, isGitHubConnected]);
 
+  async function handleRegister(repository: GitHubRepositorySummary) {
+    if (!session || registeredRepositoryIds.has(String(repository.id))) {
+      return;
+    }
+
+    setRegistrationError(null);
+    setRegisteringIds((currentIds) => new Set(currentIds).add(repository.id));
+    try {
+      const registeredRepository = await registerGitHubRepository(
+        { getSession: async () => session },
+        {
+          github_repository_id: String(repository.id),
+          full_name: repository.full_name,
+          default_branch: repository.default_branch,
+        },
+      );
+      setRegisteredRepositories((currentRepositories) => [
+        ...currentRepositories.filter(
+          (currentRepository) => currentRepository.github_repository_id !== String(repository.id),
+        ),
+        registeredRepository,
+      ]);
+    } catch {
+      setRegistrationError(repositoryRegistrationErrorMessage);
+    } finally {
+      setRegisteringIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(repository.id);
+        return nextIds;
+      });
+    }
+  }
+
   return (
     <section className="pb-8" aria-labelledby="repositories-heading">
       <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
@@ -316,7 +394,7 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
               Repositories
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Browse linked GitHub repositories before registration and indexing are enabled.
+              Browse linked GitHub repositories and register the ones RepoMind AI should manage.
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px] xl:w-[30rem]">
@@ -382,12 +460,28 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
           </div>
         ) : null}
 
+        {registrationError ? (
+          <p
+            role="alert"
+            className="mt-4 inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+          >
+            <CircleAlert aria-hidden="true" className="h-4 w-4" />
+            {registrationError}
+          </p>
+        ) : null}
+
         <div className="mt-5" aria-live="polite" aria-busy={loading}>
           {loading ? <RepositorySkeletons /> : null}
           {!loading && repositories.length > 0 ? (
             <div className="grid gap-3">
               {repositories.map((repository) => (
-                <RepositoryCard key={repository.id} repository={repository} />
+                <RepositoryCard
+                  key={repository.id}
+                  isRegistered={registeredRepositoryIds.has(String(repository.id))}
+                  isRegistering={registeringIds.has(repository.id)}
+                  onRegister={handleRegister}
+                  repository={repository}
+                />
               ))}
             </div>
           ) : null}

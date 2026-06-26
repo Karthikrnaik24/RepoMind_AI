@@ -6,6 +6,8 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getGitHubRepositoriesMock = vi.fn();
+const getRegisteredRepositoriesMock = vi.fn();
+const registerGitHubRepositoryMock = vi.fn();
 const replaceMock = vi.fn();
 const useAuthMock = vi.fn();
 const useSearchParamsMock = vi.fn(() => new URLSearchParams());
@@ -27,6 +29,8 @@ vi.mock("../../api/github", () => {
 
   return {
     getGitHubRepositories: (...args: unknown[]) => getGitHubRepositoriesMock(...args),
+    getRegisteredRepositories: (...args: unknown[]) => getRegisteredRepositoriesMock(...args),
+    registerGitHubRepository: (...args: unknown[]) => registerGitHubRepositoryMock(...args),
     GitHubRepositoryDiscoveryError: MockGitHubRepositoryDiscoveryError,
   };
 });
@@ -64,6 +68,24 @@ const repository = {
   },
 };
 
+const registeredRepository = {
+  id: "local-repository-id",
+  owner_user_id: "local-user-id",
+  github_repository_id: "123",
+  name: "RepoMind_AI",
+  full_name: "Karthikrnaik24/RepoMind_AI",
+  owner_login: "Karthikrnaik24",
+  default_branch: "main",
+  visibility: "private",
+  language: "TypeScript",
+  description: "AI software engineer for GitHub repositories",
+  html_url: "https://github.com/Karthikrnaik24/RepoMind_AI",
+  registered_at: "2026-06-26T10:00:00Z",
+  sync_status: "PENDING",
+  created_at: "2026-06-26T10:00:00Z",
+  updated_at: "2026-06-26T10:00:00Z",
+};
+
 function mockAuthenticatedDashboard(identities = [{ provider: "google" }, { provider: "github" }]) {
   const refreshSession = vi.fn();
   useAuthMock.mockReturnValue({
@@ -88,11 +110,15 @@ function mockAuthenticatedDashboard(identities = [{ provider: "google" }, { prov
 
 beforeEach(() => {
   getGitHubRepositoriesMock.mockResolvedValue({ success: true, data: [repository], meta: {} });
+  getRegisteredRepositoriesMock.mockResolvedValue([]);
+  registerGitHubRepositoryMock.mockResolvedValue(registeredRepository);
 });
 
 afterEach(() => {
   cleanup();
   getGitHubRepositoriesMock.mockReset();
+  getRegisteredRepositoriesMock.mockReset();
+  registerGitHubRepositoryMock.mockReset();
   replaceMock.mockReset();
   useAuthMock.mockReset();
   useSearchParamsMock.mockReturnValue(new URLSearchParams());
@@ -158,10 +184,43 @@ describe("DashboardPage", () => {
     expect(screen.getByText("private")).toBeInTheDocument();
     expect(screen.getByText("main")).toBeInTheDocument();
     expect(screen.getByText("Searching repositories on the current page.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Register Repository" })).toBeInTheDocument();
     expect(getGitHubRepositoriesMock).toHaveBeenCalledWith(
       expect.objectContaining({ getSession: expect.any(Function) }),
       expect.objectContaining({ page: 1, perPage: 12, visibility: "all" }),
     );
+    expect(getRegisteredRepositoriesMock).toHaveBeenCalledWith(
+      expect.objectContaining({ getSession: expect.any(Function) }),
+    );
+  });
+
+  it("registers a repository from the dashboard", async () => {
+    mockAuthenticatedDashboard();
+
+    render(<DashboardPage />);
+    const button = await screen.findByRole("button", { name: "Register Repository" });
+    fireEvent.click(button);
+
+    await waitFor(() => expect(registerGitHubRepositoryMock).toHaveBeenCalledOnce());
+    expect(registerGitHubRepositoryMock).toHaveBeenCalledWith(
+      expect.objectContaining({ getSession: expect.any(Function) }),
+      {
+        github_repository_id: "123",
+        full_name: "Karthikrnaik24/RepoMind_AI",
+        default_branch: "main",
+      },
+    );
+    await waitFor(() => expect(screen.getByRole("button", { name: /Registered/i })).toBeDisabled());
+  });
+
+  it("shows registered repositories as disabled", async () => {
+    getRegisteredRepositoriesMock.mockResolvedValue([registeredRepository]);
+    mockAuthenticatedDashboard();
+
+    render(<DashboardPage />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /Registered/i })).toBeDisabled());
+    expect(screen.getAllByText("Registered").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows skeleton loaders while repositories load", () => {

@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   getGitHubRepositories,
   getGitHubTokenDebugStatus,
+  getRegisteredRepositories,
   GitHubRepositoryDiscoveryError,
+  registerGitHubRepository,
 } from "./github";
 
 describe("GitHub API helpers", () => {
@@ -62,6 +64,104 @@ describe("GitHub API helpers", () => {
     expect(url).toContain("search=RepoMind");
     expect(url).toContain("visibility=private");
     expect((init.headers as Headers).get("Authorization")).toBe("Bearer sample-access-token");
+  });
+
+  it("registers a GitHub repository through the protected repositories API", async () => {
+    const fetcherMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: {
+              id: "local-repository-id",
+              owner_user_id: "local-user-id",
+              github_repository_id: "123",
+              name: "RepoMind_AI",
+              full_name: "Karthikrnaik24/RepoMind_AI",
+              owner_login: "Karthikrnaik24",
+              default_branch: "main",
+              visibility: "private",
+              language: "TypeScript",
+              description: null,
+              html_url: "https://github.com/Karthikrnaik24/RepoMind_AI",
+              registered_at: "2026-06-26T10:00:00Z",
+              sync_status: "PENDING",
+              created_at: "2026-06-26T10:00:00Z",
+              updated_at: "2026-06-26T10:00:00Z",
+            },
+            meta: {},
+          }),
+          { status: 201 },
+        ),
+    );
+
+    const repository = await registerGitHubRepository(
+      {
+        baseUrl: "http://api.test",
+        fetcher: fetcherMock as unknown as typeof fetch,
+        getSession: async () => ({ access_token: "sample-access-token" }) as Session,
+      },
+      {
+        github_repository_id: "123",
+        full_name: "Karthikrnaik24/RepoMind_AI",
+        default_branch: "main",
+      },
+    );
+
+    const [url, init] = fetcherMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://api.test/api/v1/repositories/register");
+    expect(init.method).toBe("POST");
+    expect((init.headers as Headers).get("Authorization")).toBe("Bearer sample-access-token");
+    expect(JSON.parse(init.body as string)).toEqual({
+      github_repository_id: "123",
+      full_name: "Karthikrnaik24/RepoMind_AI",
+      default_branch: "main",
+    });
+    expect(repository.sync_status).toBe("PENDING");
+  });
+
+  it("fetches registered repositories through the protected repositories API", async () => {
+    const fetcherMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            success: true,
+            data: [
+              {
+                id: "local-repository-id",
+                owner_user_id: "local-user-id",
+                github_repository_id: "123",
+                name: "RepoMind_AI",
+                full_name: "Karthikrnaik24/RepoMind_AI",
+                owner_login: "Karthikrnaik24",
+                default_branch: "main",
+                visibility: "private",
+                language: "TypeScript",
+                description: null,
+                html_url: "https://github.com/Karthikrnaik24/RepoMind_AI",
+                registered_at: "2026-06-26T10:00:00Z",
+                sync_status: "PENDING",
+                created_at: "2026-06-26T10:00:00Z",
+                updated_at: "2026-06-26T10:00:00Z",
+              },
+            ],
+            meta: { count: 1 },
+          }),
+          { status: 200 },
+        ),
+    );
+
+    const repositories = await getRegisteredRepositories({
+      baseUrl: "http://api.test",
+      fetcher: fetcherMock as unknown as typeof fetch,
+      getSession: async () => ({ access_token: "sample-access-token" }) as Session,
+    });
+
+    const [url, init] = fetcherMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe("http://api.test/api/v1/repositories");
+    expect((init.headers as Headers).get("Authorization")).toBe("Bearer sample-access-token");
+    expect(repositories).toHaveLength(1);
+    expect(repositories[0].github_repository_id).toBe("123");
   });
 
   it("maps rate limit responses to typed repository discovery errors", async () => {

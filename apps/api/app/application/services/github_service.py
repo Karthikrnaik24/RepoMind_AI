@@ -1,6 +1,7 @@
 """GitHub application service."""
 
 from typing import Any, Literal
+from urllib.parse import quote
 
 from app.domain.github import GitHubTokenProvider, GitHubTokenStatus, RepositorySummary
 from app.domain.identity import AuthenticatedUser
@@ -65,6 +66,26 @@ class GitHubService:
                 if normalized_search in repository.name.lower()
             ]
         return repositories
+
+    def get_repository_by_full_name(
+        self,
+        authenticated_user: AuthenticatedUser,
+        *,
+        full_name: str,
+    ) -> RepositorySummary:
+        """Fetch one GitHub repository visible to the authenticated GitHub token."""
+
+        token = self._token_provider.get_access_token(authenticated_user)
+        normalized_full_name = full_name.strip()
+        encoded_full_name = quote(normalized_full_name, safe="/")
+        payload = self._client.request_json(
+            "GET",
+            f"/repos/{encoded_full_name}",
+            token=token,
+        )
+        if not isinstance(payload, dict):
+            raise GitHubUnavailable("GitHub returned an unexpected repository payload.")
+        return self.to_repository_summary(payload)
 
     def to_repository_summary(self, payload: dict[str, Any]) -> RepositorySummary:
         """Map a GitHub repository payload into a RepoMind AI DTO."""

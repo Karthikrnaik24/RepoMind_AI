@@ -35,6 +35,24 @@ export type GitHubRepositorySummary = {
   };
 };
 
+export type RegisteredRepository = {
+  id: string;
+  owner_user_id: string;
+  github_repository_id: string;
+  name: string;
+  full_name: string;
+  owner_login: string;
+  default_branch: string;
+  visibility: string;
+  language: string | null;
+  description: string | null;
+  html_url: string | null;
+  registered_at: string;
+  sync_status: string;
+  created_at: string;
+  updated_at: string;
+};
+
 export type GitHubRepositoryVisibility = "all" | "public" | "private";
 export type GitHubRepositoryDiscoveryErrorCode =
   | "github_unavailable"
@@ -71,6 +89,12 @@ type GitHubRepositoryQuery = {
   visibility?: GitHubRepositoryVisibility;
 };
 
+type RegisterRepositoryInput = {
+  github_repository_id: string;
+  full_name: string;
+  default_branch: string;
+};
+
 function getRepositoryErrorCode(status: number): GitHubRepositoryDiscoveryErrorCode {
   if (status === 401) {
     return "token_expired";
@@ -87,6 +111,10 @@ function getRepositoryErrorCode(status: number): GitHubRepositoryDiscoveryErrorC
   return "fetch_failed";
 }
 
+async function parseSuccess<T>(response: Response): Promise<ApiSuccessEnvelope<T>> {
+  return (await response.json()) as ApiSuccessEnvelope<T>;
+}
+
 export async function getGitHubTokenDebugStatus({
   baseUrl,
   fetcher,
@@ -99,7 +127,7 @@ export async function getGitHubTokenDebugStatus({
     throw new Error("GitHub token debug request failed.");
   }
 
-  const payload = (await response.json()) as ApiSuccessEnvelope<GitHubTokenDebugStatus>;
+  const payload = await parseSuccess<GitHubTokenDebugStatus>(response);
   return payload.data;
 }
 
@@ -129,5 +157,41 @@ export async function getGitHubRepositories(
     throw new GitHubRepositoryDiscoveryError(getRepositoryErrorCode(response.status));
   }
 
-  return (await response.json()) as ApiSuccessEnvelope<GitHubRepositorySummary[]>;
+  return parseSuccess<GitHubRepositorySummary[]>(response);
+}
+
+export async function registerGitHubRepository(
+  { baseUrl, fetcher, getSession }: GitHubApiOptions,
+  repository: RegisterRepositoryInput,
+): Promise<RegisteredRepository> {
+  const client = createApiClient({ baseUrl, fetcher, getSession });
+  const response = await client.request("/api/v1/repositories/register", {
+    authenticated: true,
+    body: JSON.stringify(repository),
+    headers: { "Content-Type": "application/json" },
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error("Repository registration failed.");
+  }
+
+  const payload = await parseSuccess<RegisteredRepository>(response);
+  return payload.data;
+}
+
+export async function getRegisteredRepositories({
+  baseUrl,
+  fetcher,
+  getSession,
+}: GitHubApiOptions): Promise<RegisteredRepository[]> {
+  const client = createApiClient({ baseUrl, fetcher, getSession });
+  const response = await client.request("/api/v1/repositories", { authenticated: true });
+
+  if (!response.ok) {
+    throw new Error("Registered repositories request failed.");
+  }
+
+  const payload = await parseSuccess<RegisteredRepository[]>(response);
+  return payload.data;
 }

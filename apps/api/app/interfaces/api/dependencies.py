@@ -15,6 +15,7 @@ from app.application.services import (
     ChatService,
     GitHubService,
     IndexingService,
+    RepositoryRegistrationService,
     RepositoryService,
     UserService,
     UserSyncService,
@@ -162,3 +163,14 @@ def get_github_service(
     """Create the GitHub application service for future use cases."""
 
     return GitHubService(github_client, token_provider)
+
+def get_repository_registration_service(
+    repository_repository: Annotated[
+        RepositoryRepository,
+        Depends(get_repository_repository),
+    ],
+    github_service: Annotated[GitHubService, Depends(get_github_service)],
+) -> RepositoryRegistrationService:
+    """Create the repository registration application service."""
+
+    return RepositoryRegistrationService(repository_repository, github_service)
