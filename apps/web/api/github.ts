@@ -36,6 +36,21 @@ export type GitHubRepositorySummary = {
 };
 
 export type GitHubRepositoryVisibility = "all" | "public" | "private";
+export type GitHubRepositoryDiscoveryErrorCode =
+  | "github_unavailable"
+  | "rate_limited"
+  | "token_expired"
+  | "fetch_failed";
+
+export class GitHubRepositoryDiscoveryError extends Error {
+  code: GitHubRepositoryDiscoveryErrorCode;
+
+  constructor(code: GitHubRepositoryDiscoveryErrorCode) {
+    super(code);
+    this.name = "GitHubRepositoryDiscoveryError";
+    this.code = code;
+  }
+}
 
 type ApiSuccessEnvelope<T> = {
   success: true;
@@ -55,6 +70,22 @@ type GitHubRepositoryQuery = {
   search?: string;
   visibility?: GitHubRepositoryVisibility;
 };
+
+function getRepositoryErrorCode(status: number): GitHubRepositoryDiscoveryErrorCode {
+  if (status === 401) {
+    return "token_expired";
+  }
+
+  if (status === 429) {
+    return "rate_limited";
+  }
+
+  if (status >= 500) {
+    return "github_unavailable";
+  }
+
+  return "fetch_failed";
+}
 
 export async function getGitHubTokenDebugStatus({
   baseUrl,
@@ -95,7 +126,7 @@ export async function getGitHubRepositories(
   });
 
   if (!response.ok) {
-    throw new Error("GitHub repository discovery request failed.");
+    throw new GitHubRepositoryDiscoveryError(getRepositoryErrorCode(response.status));
   }
 
   return (await response.json()) as ApiSuccessEnvelope<GitHubRepositorySummary[]>;

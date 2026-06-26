@@ -15,9 +15,21 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => useSearchParamsMock(),
 }));
 
-vi.mock("../../api/github", () => ({
-  getGitHubRepositories: (...args: unknown[]) => getGitHubRepositoriesMock(...args),
-}));
+vi.mock("../../api/github", () => {
+  class MockGitHubRepositoryDiscoveryError extends Error {
+    code: string;
+
+    constructor(code: string) {
+      super(code);
+      this.code = code;
+    }
+  }
+
+  return {
+    getGitHubRepositories: (...args: unknown[]) => getGitHubRepositoriesMock(...args),
+    GitHubRepositoryDiscoveryError: MockGitHubRepositoryDiscoveryError,
+  };
+});
 
 vi.mock("../../features/auth/auth-hooks", () => ({
   useAuth: () => useAuthMock(),
@@ -142,7 +154,10 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Karthikrnaik24")).toBeInTheDocument();
     expect(screen.getByText("AI software engineer for GitHub repositories")).toBeInTheDocument();
     expect(screen.getByText("TypeScript")).toBeInTheDocument();
+    expect(screen.getByAltText("Karthikrnaik24 avatar")).toBeInTheDocument();
     expect(screen.getByText("private")).toBeInTheDocument();
+    expect(screen.getByText("main")).toBeInTheDocument();
+    expect(screen.getByText("Searching repositories on the current page.")).toBeInTheDocument();
     expect(getGitHubRepositoriesMock).toHaveBeenCalledWith(
       expect.objectContaining({ getSession: expect.any(Function) }),
       expect.objectContaining({ page: 1, perPage: 12, visibility: "all" }),
@@ -165,8 +180,10 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage />);
 
-    await waitFor(() => expect(screen.getByText("No repositories to show")).toBeInTheDocument());
-    expect(screen.getByText("No repositories were found for this GitHub account.")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByText("GitHub account has no repositories")).toBeInTheDocument(),
+    );
+    expect(screen.getByText("No repositories were returned for this linked GitHub account.")).toBeInTheDocument();
   });
 
   it("sends search and visibility filters to the backend", async () => {
@@ -187,14 +204,44 @@ describe("DashboardPage", () => {
   });
 
   it("shows friendly repository discovery errors", async () => {
-    getGitHubRepositoriesMock.mockRejectedValue(new Error("rate limited"));
+    getGitHubRepositoriesMock.mockRejectedValue(new Error("repository fetch failed"));
     mockAuthenticatedDashboard();
 
     render(<DashboardPage />);
 
     await waitFor(() =>
-      expect(screen.getByText("Repository discovery is unavailable right now.")).toBeInTheDocument(),
+      expect(screen.getByText("Repository fetch failed. Please try again.")).toBeInTheDocument(),
     );
+  });
+
+  it("shows search empty state messaging", async () => {
+    getGitHubRepositoriesMock.mockResolvedValue({ success: true, data: [], meta: {} });
+    mockAuthenticatedDashboard();
+
+    render(<DashboardPage />);
+    fireEvent.change(screen.getByPlaceholderText("Search repositories"), {
+      target: { value: "missing" },
+    });
+
+    await waitFor(() => expect(screen.getByText("Search returned no matches")).toBeInTheDocument());
+    expect(
+      screen.getByText("No repositories on the current page match this search or visibility filter."),
+    ).toBeInTheDocument();
+  });
+
+  it("retries repository discovery after an error", async () => {
+    getGitHubRepositoriesMock
+      .mockRejectedValueOnce(new Error("repository fetch failed"))
+      .mockResolvedValueOnce({ success: true, data: [repository], meta: {} });
+    mockAuthenticatedDashboard();
+
+    render(<DashboardPage />);
+    await waitFor(() =>
+      expect(screen.getByText("Repository fetch failed. Please try again.")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Retry/i }));
+
+    await waitFor(() => expect(screen.getByText("RepoMind_AI")).toBeInTheDocument());
   });
 
   it("shows friendly GitHub linking errors", () => {

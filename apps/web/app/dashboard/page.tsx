@@ -5,10 +5,20 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
-import { BadgeCheck, CircleAlert, Github, Globe2, Lock, Search } from "lucide-react";
+import {
+  BadgeCheck,
+  CircleAlert,
+  GitBranch,
+  Github,
+  Globe2,
+  Lock,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 
 import {
   getGitHubRepositories,
+  GitHubRepositoryDiscoveryError,
   type GitHubRepositorySummary,
   type GitHubRepositoryVisibility,
 } from "../../api/github";
@@ -20,6 +30,13 @@ const githubLinkErrorMessages: Record<string, string> = {
   oauth_cancelled: "GitHub linking was cancelled.",
   oauth_failed: "GitHub linking failed. Please try again.",
   provider_unavailable: "GitHub linking is unavailable right now.",
+};
+
+const repositoryDiscoveryErrorMessages = {
+  fetch_failed: "Repository fetch failed. Please try again.",
+  github_unavailable: "GitHub is unavailable right now. Please retry in a moment.",
+  rate_limited: "GitHub rate limit exceeded. Please wait before trying again.",
+  token_expired: "Your GitHub session needs to be refreshed. Please sign in again if retry fails.",
 };
 
 function getDisplayName(user: User | null) {
@@ -99,7 +116,9 @@ function ProviderStatus({ connected, label }: ProviderStatusProps) {
         </span>
         <div>
           <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{connected ? "Connected" : "Not Connected"}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {connected ? "Connected" : "Not Connected"}
+          </p>
         </div>
       </div>
       {connected ? (
@@ -118,14 +137,23 @@ function ProviderStatus({ connected, label }: ProviderStatusProps) {
 
 function RepositorySkeletons() {
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-3" aria-label="Loading repositories">
       {Array.from({ length: 3 }).map((_, index) => (
         <div key={index} className="rounded-lg border border-border bg-card p-4 shadow-sm">
-          <div className="h-4 w-2/5 animate-pulse rounded bg-muted" />
-          <div className="mt-3 h-3 w-3/4 animate-pulse rounded bg-muted" />
-          <div className="mt-5 flex gap-2">
-            <div className="h-6 w-20 animate-pulse rounded bg-muted" />
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 animate-pulse rounded-full bg-muted" />
+            <div className="min-w-0 flex-1">
+              <div className="h-4 w-2/5 animate-pulse rounded bg-muted" />
+              <div className="mt-2 h-3 w-1/4 animate-pulse rounded bg-muted" />
+            </div>
+            <div className="h-6 w-20 animate-pulse rounded-full bg-muted" />
+          </div>
+          <div className="mt-4 h-3 w-full animate-pulse rounded bg-muted" />
+          <div className="mt-2 h-3 w-3/5 animate-pulse rounded bg-muted" />
+          <div className="mt-5 flex flex-wrap gap-2">
             <div className="h-6 w-24 animate-pulse rounded bg-muted" />
+            <div className="h-6 w-28 animate-pulse rounded bg-muted" />
+            <div className="h-6 w-32 animate-pulse rounded bg-muted" />
           </div>
         </div>
       ))}
@@ -138,27 +166,54 @@ type RepositoryCardProps = {
 };
 
 function RepositoryCard({ repository }: RepositoryCardProps) {
+  const visibility = repository.visibility ?? (repository.private ? "private" : "public");
+
   return (
-    <article className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h3 className="text-base font-semibold text-card-foreground">{repository.name}</h3>
-          <p className="mt-1 text-xs text-muted-foreground">{repository.owner.login}</p>
+    <article className="rounded-lg border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/40">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          {repository.owner.avatar_url ? (
+            <Image
+              src={repository.owner.avatar_url}
+              alt={`${repository.owner.login} avatar`}
+              width={40}
+              height={40}
+              unoptimized
+              className="h-10 w-10 rounded-full border border-border object-cover"
+            />
+          ) : (
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-sm font-semibold text-secondary-foreground">
+              {repository.owner.login.charAt(0).toUpperCase()}
+            </div>
+          )}
+          <div className="min-w-0">
+            <h3 className="truncate text-base font-semibold text-card-foreground">
+              {repository.name}
+            </h3>
+            <p className="mt-1 truncate text-xs text-muted-foreground">{repository.owner.login}</p>
+          </div>
         </div>
-        <span className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
-          {repository.private ? <Lock aria-hidden="true" className="h-3 w-3" /> : <Globe2 aria-hidden="true" className="h-3 w-3" />}
-          {repository.visibility ?? (repository.private ? "private" : "public")}
+        <span className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-secondary px-2 py-1 text-xs font-medium capitalize text-secondary-foreground">
+          {repository.private ? (
+            <Lock aria-hidden="true" className="h-3 w-3" />
+          ) : (
+            <Globe2 aria-hidden="true" className="h-3 w-3" />
+          )}
+          {visibility}
         </span>
       </div>
-      <p className="mt-3 text-sm text-muted-foreground">
-        {repository.description ?? "No description provided."}
+
+      <p className="mt-4 text-sm text-muted-foreground">
+        {repository.description || "No description provided for this repository."}
       </p>
+
       <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-        <span className="rounded-md border border-border bg-background px-2 py-1">
+        <span className="rounded-md border border-border bg-background px-2 py-1 font-medium text-foreground">
           {repository.language ?? "Unknown language"}
         </span>
-        <span className="rounded-md border border-border bg-background px-2 py-1">
-          Default: {repository.default_branch}
+        <span className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2 py-1">
+          <GitBranch aria-hidden="true" className="h-3 w-3" />
+          {repository.default_branch}
         </span>
         <span className="rounded-md border border-border bg-background px-2 py-1">
           Updated {formatUpdatedAt(repository.updated_at)}
@@ -173,6 +228,14 @@ type RepositoryBrowserProps = {
   session: Session | null;
 };
 
+function getRepositoryErrorMessage(error: unknown) {
+  if (error instanceof GitHubRepositoryDiscoveryError) {
+    return repositoryDiscoveryErrorMessages[error.code];
+  }
+
+  return repositoryDiscoveryErrorMessages.fetch_failed;
+}
+
 function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProps) {
   const [repositories, setRepositories] = useState<GitHubRepositorySummary[]>([]);
   const [search, setSearch] = useState("");
@@ -180,12 +243,15 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryAttempt, setRetryAttempt] = useState(0);
 
   const canGoNext = repositories.length >= 12;
+  const hasActiveFilter = Boolean(search.trim()) || visibility !== "all";
 
   useEffect(() => {
     if (!session || !isGitHubConnected) {
       setRepositories([]);
+      setError(null);
       return;
     }
 
@@ -201,10 +267,10 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
         if (isMounted) {
           setRepositories(result.data);
         }
-      } catch {
+      } catch (caughtError) {
         if (isMounted) {
           setRepositories([]);
-          setError("Repository discovery is unavailable right now.");
+          setError(getRepositoryErrorMessage(caughtError));
         }
       } finally {
         if (isMounted) {
@@ -218,51 +284,75 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
     return () => {
       isMounted = false;
     };
-  }, [isGitHubConnected, page, search, session, visibility]);
+  }, [isGitHubConnected, page, retryAttempt, search, session, visibility]);
 
-  const emptyMessage = useMemo(() => {
+  const emptyState = useMemo(() => {
     if (!isGitHubConnected) {
-      return "Connect GitHub to browse repositories.";
+      return {
+        title: "Connect GitHub to browse repositories",
+        message: "Repository discovery starts after your GitHub identity is linked.",
+      };
     }
-    if (search || visibility !== "all") {
-      return "No repositories match the current search or filter.";
+
+    if (hasActiveFilter) {
+      return {
+        title: "Search returned no matches",
+        message: "No repositories on the current page match this search or visibility filter.",
+      };
     }
-    return "No repositories were found for this GitHub account.";
-  }, [isGitHubConnected, search, visibility]);
+
+    return {
+      title: "GitHub account has no repositories",
+      message: "No repositories were returned for this linked GitHub account.",
+    };
+  }, [hasActiveFilter, isGitHubConnected]);
 
   return (
-    <section className="pb-8">
-      <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+    <section className="pb-8" aria-labelledby="repositories-heading">
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <h2 className="text-lg font-semibold text-card-foreground">Repositories</h2>
+            <h2 id="repositories-heading" className="text-lg font-semibold text-card-foreground">
+              Repositories
+            </h2>
             <p className="mt-2 text-sm text-muted-foreground">
               Browse linked GitHub repositories before registration and indexing are enabled.
             </p>
           </div>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <label className="relative block">
-              <span className="sr-only">Search repositories</span>
-              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <input
-                value={search}
-                onChange={(event) => {
-                  setPage(1);
-                  setSearch(event.target.value);
-                }}
-                placeholder="Search repositories"
-                className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary sm:w-64"
-              />
-            </label>
-            <label>
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_160px] xl:w-[30rem]">
+            <div>
+              <label className="relative block" htmlFor="repository-search">
+                <span className="sr-only">Search repositories</span>
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                />
+                <input
+                  id="repository-search"
+                  value={search}
+                  onChange={(event) => {
+                    setPage(1);
+                    setSearch(event.target.value);
+                  }}
+                  placeholder="Search repositories"
+                  aria-describedby="repository-search-help"
+                  className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </label>
+              <p id="repository-search-help" className="mt-2 text-xs text-muted-foreground">
+                Searching repositories on the current page.
+              </p>
+            </div>
+            <label htmlFor="repository-visibility">
               <span className="sr-only">Visibility filter</span>
               <select
+                id="repository-visibility"
                 value={visibility}
                 onChange={(event) => {
                   setPage(1);
                   setVisibility(event.target.value as GitHubRepositoryVisibility);
                 }}
-                className="h-10 rounded-md border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-primary"
+                className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-primary focus:ring-2 focus:ring-primary/20"
               >
                 <option value="all">All</option>
                 <option value="public">Public</option>
@@ -273,13 +363,26 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
         </div>
 
         {error ? (
-          <p className="mt-4 inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-            <CircleAlert aria-hidden="true" className="h-4 w-4" />
-            {error}
-          </p>
+          <div
+            role="alert"
+            className="mt-4 flex flex-col gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-3 text-sm text-destructive sm:flex-row sm:items-center sm:justify-between"
+          >
+            <span className="inline-flex items-center gap-2">
+              <CircleAlert aria-hidden="true" className="h-4 w-4 shrink-0" />
+              {error}
+            </span>
+            <button
+              type="button"
+              onClick={() => setRetryAttempt((currentAttempt) => currentAttempt + 1)}
+              className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-md border border-destructive/40 bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-destructive/30"
+            >
+              <RefreshCw aria-hidden="true" className="h-4 w-4" />
+              Retry
+            </button>
+          </div>
         ) : null}
 
-        <div className="mt-5">
+        <div className="mt-5" aria-live="polite" aria-busy={loading}>
           {loading ? <RepositorySkeletons /> : null}
           {!loading && repositories.length > 0 ? (
             <div className="grid gap-3">
@@ -288,23 +391,25 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
               ))}
             </div>
           ) : null}
-          {!loading && repositories.length === 0 ? (
+          {!loading && repositories.length === 0 && !error ? (
             <div className="rounded-lg border border-dashed border-border bg-background p-8 text-center">
               <Github aria-hidden="true" className="mx-auto h-8 w-8 text-muted-foreground" />
-              <h3 className="mt-4 text-base font-semibold text-foreground">No repositories to show</h3>
-              <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
+              <h3 className="mt-4 text-base font-semibold text-foreground">{emptyState.title}</h3>
+              <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                {emptyState.message}
+              </p>
             </div>
           ) : null}
         </div>
 
-        <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-sm">
+        <div className="mt-5 flex flex-col gap-3 border-t border-border pt-4 text-sm sm:flex-row sm:items-center sm:justify-between">
           <span className="text-muted-foreground">Page {page}</span>
           <div className="flex gap-2">
             <button
               type="button"
               disabled={page === 1 || loading}
               onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
-              className="h-9 rounded-md border border-border px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-9 rounded-md border border-border px-3 text-sm font-medium outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Previous
             </button>
@@ -312,7 +417,7 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
               type="button"
               disabled={!canGoNext || loading}
               onClick={() => setPage((currentPage) => currentPage + 1)}
-              className="h-9 rounded-md border border-border px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              className="h-9 rounded-md border border-border px-3 text-sm font-medium outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Next
             </button>
@@ -338,7 +443,7 @@ function DashboardContent() {
   }, [refreshSession]);
 
   return (
-    <main className="min-h-[calc(100vh-4rem)] bg-background px-6 py-10 text-foreground">
+    <main className="min-h-[calc(100vh-4rem)] bg-background px-4 py-8 text-foreground sm:px-6 sm:py-10">
       <section className="mx-auto max-w-4xl">
         <p className="text-sm font-medium uppercase text-muted-foreground">Dashboard</p>
         <div className="mt-4 flex flex-col gap-5 border-b border-border pb-6 sm:flex-row sm:items-center sm:justify-between">
@@ -365,7 +470,7 @@ function DashboardContent() {
           <button
             type="button"
             onClick={() => void signOut()}
-            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30"
           >
             Log out
           </button>
@@ -384,7 +489,7 @@ function DashboardContent() {
                 <button
                   type="button"
                   onClick={() => void linkGitHubIdentity()}
-                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+                  className="inline-flex h-10 items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30"
                 >
                   <Github aria-hidden="true" className="h-4 w-4" />
                   Connect GitHub

@@ -347,6 +347,53 @@ Give users a concise command center for repository activity, recent analysis, on
 - Skeleton panels for repository cards, jobs, and recent chats.
 - Inline loading for retry actions.
 
+
+### Repository Discovery UX
+
+The Dashboard includes a read-only repository discovery panel after GitHub account linking. This panel is for browsing only; repository registration, cloning, indexing, embeddings, and AI actions remain out of scope until later sprints.
+
+Discovery controls:
+
+- Search input with helper text: "Searching repositories on the current page."
+- Visibility filter with All, Public, and Private options.
+- Pagination controls with clear disabled states.
+- Search and filter controls must remain in the same area so the implementation can later switch from page-limited backend filtering to GitHub Search API without redesigning the page.
+
+Repository cards:
+
+- Show repository name as the primary scan target.
+- Show owner avatar and owner login next to the repository identity.
+- Show visibility, language, default branch, last updated date, and description.
+- Use "No description provided for this repository." when GitHub has no description.
+- Keep cards readable in one column across desktop, tablet, and mobile widths.
+
+Repository discovery empty states:
+
+- GitHub not linked: "Connect GitHub to browse repositories."
+- Linked account with no repositories: "GitHub account has no repositories."
+- Search or filter has no page matches: "Search returned no matches."
+
+Repository discovery loading states:
+
+- Use skeleton cards that match the final card layout: avatar, name, owner, visibility badge, description lines, and metadata chips.
+- Loading regions should set busy state semantics where practical.
+
+Repository discovery error states:
+
+- GitHub unavailable: explain that GitHub is unavailable and offer retry.
+- Rate limit exceeded: explain that the GitHub rate limit has been reached and offer retry after waiting.
+- Token expired or invalid session: explain that the GitHub session may need refresh or sign-in.
+- Generic repository fetch failure: use a concise retryable message.
+- Error state must include a keyboard-focusable Retry button.
+
+Accessibility requirements:
+
+- Search input must have an accessible label and helper text association.
+- Visibility filter must have an accessible label.
+- Retry, Previous, and Next buttons must have visible focus states.
+- Loading and result regions should use polite announcements or busy state semantics.
+- Color should not be the only visibility indicator; use lock/globe icons plus text.
+
 ### Error States
 
 - Failed to load dashboard data.

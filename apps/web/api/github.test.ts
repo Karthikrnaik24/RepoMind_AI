@@ -1,7 +1,11 @@
 import type { Session } from "@supabase/supabase-js";
 import { describe, expect, it, vi } from "vitest";
 
-import { getGitHubRepositories, getGitHubTokenDebugStatus } from "./github";
+import {
+  getGitHubRepositories,
+  getGitHubTokenDebugStatus,
+  GitHubRepositoryDiscoveryError,
+} from "./github";
 
 describe("GitHub API helpers", () => {
   it("requests the protected debug-token endpoint with the session token", async () => {
@@ -58,6 +62,18 @@ describe("GitHub API helpers", () => {
     expect(url).toContain("search=RepoMind");
     expect(url).toContain("visibility=private");
     expect((init.headers as Headers).get("Authorization")).toBe("Bearer sample-access-token");
+  });
+
+  it("maps rate limit responses to typed repository discovery errors", async () => {
+    const fetcherMock = vi.fn(async () => new Response(null, { status: 429 }));
+
+    await expect(
+      getGitHubRepositories({
+        baseUrl: "http://api.test",
+        fetcher: fetcherMock as unknown as typeof fetch,
+        getSession: async () => ({ access_token: "sample-access-token" }) as Session,
+      }),
+    ).rejects.toMatchObject(new GitHubRepositoryDiscoveryError("rate_limited"));
   });
 
   it("does not serialize provider tokens from the API response", async () => {
