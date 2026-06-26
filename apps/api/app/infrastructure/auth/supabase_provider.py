@@ -29,18 +29,26 @@ class SupabaseIdentityProvider:
             raise AuthenticationException("JWT claims are invalid.", code="invalid_token_claims")
 
         app_metadata = claims.get("app_metadata")
+        identities = claims.get("identities")
+        providers = claims.get("providers")
         role = claims.get("role")
         if isinstance(app_metadata, dict) and isinstance(app_metadata.get("role"), str):
             role = app_metadata["role"]
+
+        metadata: dict[str, Any] = {
+            "app_metadata": app_metadata if isinstance(app_metadata, dict) else {},
+            "user_metadata": claims.get("user_metadata")
+            if isinstance(claims.get("user_metadata"), dict)
+            else {},
+        }
+        if isinstance(identities, list):
+            metadata["identities"] = identities
+        if isinstance(providers, list):
+            metadata["providers"] = providers
 
         return AuthenticatedUser(
             provider_subject=provider_subject,
             email=email,
             role=role if isinstance(role, str) else None,
-            metadata={
-                "app_metadata": app_metadata if isinstance(app_metadata, dict) else {},
-                "user_metadata": claims.get("user_metadata")
-                if isinstance(claims.get("user_metadata"), dict)
-                else {},
-            },
+            metadata=metadata,
         )

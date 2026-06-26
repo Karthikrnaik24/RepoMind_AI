@@ -57,6 +57,55 @@ Production token storage must be designed before repository features are built.
 Provider tokens must never be logged, returned to the frontend, or stored
 unencrypted.
 
+
+## Token Verification Debug Flow
+
+Sprint 3.9B adds a protected developer diagnostic endpoint:
+
+`GET /api/v1/github/debug-token`
+
+The endpoint returns only safe metadata:
+
+```json
+{
+  "github_linked": true,
+  "token_available": true,
+  "provider": "github"
+}
+```
+
+It must never return access tokens, refresh tokens, provider tokens, Supabase
+service keys, or any other secret.
+
+```mermaid
+flowchart TD
+    SupabaseIdentity["Supabase Identity"] --> AuthDependency["CurrentUser Dependency"]
+    AuthDependency --> AuthenticatedUser["AuthenticatedUser Metadata"]
+    AuthenticatedUser --> TokenProvider["GitHubTokenProvider"]
+    TokenProvider --> SafeStatus["GitHubTokenStatus"]
+    SafeStatus --> DebugEndpoint["/api/v1/github/debug-token"]
+    TokenProvider -. "future infrastructure-only token use" .-> GitHubClient["GitHubClient"]
+```
+
+The dashboard shows this status only in developer mode. It displays whether the
+GitHub identity is linked, whether a provider token is available, and the
+provider name. It never displays token values.
+
+## Token Verification Limitations
+
+The backend currently authenticates requests with the Supabase JWT. Supabase
+sessions can expose provider tokens to trusted client/server callback code, but
+provider access tokens are not normally embedded in the JWT sent to the backend.
+That means the debug endpoint can safely report `github_linked=true` while also
+reporting `token_available=false` until a production token handoff/storage design
+is implemented.
+
+Before repository features are enabled, RepoMind AI must choose a secure provider
+token strategy. Acceptable options include encrypted server-side token storage,
+a short-lived backend token handoff during OAuth callback, or an official
+Supabase-supported server flow. Tokens must remain infrastructure-only and must
+not be serialized through application DTOs or frontend responses.
+
 ## DTO Mapping
 
 GitHub JSON is normalized into RepoMind AI DTOs:

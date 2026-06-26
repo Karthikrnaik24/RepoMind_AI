@@ -2,7 +2,9 @@
 
 from app.infrastructure.github.exceptions import (
     GitHubNotFound,
+    GitHubProviderNotLinked,
     GitHubRateLimited,
+    GitHubTokenUnavailable,
     GitHubUnauthorized,
     GitHubUnavailable,
 )
@@ -12,7 +14,9 @@ from app.infrastructure.github.token_provider import SupabaseLinkedIdentityGitHu
 __all__ = [
     "GitHubClient",
     "GitHubNotFound",
+    "GitHubProviderNotLinked",
     "GitHubRateLimited",
+    "GitHubTokenUnavailable",
     "GitHubUnauthorized",
     "GitHubUnavailable",
     "SupabaseLinkedIdentityGitHubTokenProvider",

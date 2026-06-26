@@ -3,25 +3,21 @@ from __future__ import annotations
 from typing import Any
 
 from app.application.services.github_service import GitHubService
+from app.domain.github import GitHubTokenStatus
 from app.domain.identity import AuthenticatedUser
-
-SAMPLE_ACCESS_VALUE = "sample-github-access-value"
 
 
 class FakeGitHubClient:
-    def __init__(self) -> None:
-        self.last_access_value: str | None = None
-        self.last_path: str | None = None
-
-    def request_json(self, method: str, path: str, *, token: str) -> dict[str, str]:
-        self.last_access_value = token
-        self.last_path = f"{method} {path}"
-        return {"login": "repomind"}
+    pass
 
 
 class FakeTokenProvider:
-    def get_access_token(self, _: AuthenticatedUser) -> str:
-        return SAMPLE_ACCESS_VALUE
+    def __init__(self) -> None:
+        self.last_user: AuthenticatedUser | None = None
+
+    def get_token_status(self, user: AuthenticatedUser) -> GitHubTokenStatus:
+        self.last_user = user
+        return GitHubTokenStatus(linked=True, token_available=True)
 
 
 def repository_payload() -> dict[str, Any]:
@@ -63,14 +59,17 @@ def repository_payload() -> dict[str, Any]:
     }
 
 
-def test_github_service_uses_token_provider_and_client() -> None:
-    client = FakeGitHubClient()
-    service = GitHubService(client, FakeTokenProvider())  # type: ignore[arg-type]
+def test_github_service_delegates_token_status_without_exposing_token() -> None:
+    provider = FakeTokenProvider()
+    service = GitHubService(FakeGitHubClient(), provider)  # type: ignore[arg-type]
     user = AuthenticatedUser(provider_subject="subject", email="user@example.com")
 
-    assert service.verify_linked_account(user) is True
-    assert client.last_access_value == SAMPLE_ACCESS_VALUE
-    assert client.last_path == "GET /user"
+    status = service.get_token_status(user)
+
+    assert provider.last_user == user
+    assert status.linked is True
+    assert status.token_available is True
+    assert status.provider == "github"
 
 
 def test_repository_summary_dto_mapping() -> None:

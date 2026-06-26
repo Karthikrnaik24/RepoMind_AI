@@ -7,7 +7,7 @@ infrastructure boundary.
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -16,6 +16,15 @@ def _parse_datetime(value: Any) -> datetime | None:
     if not isinstance(value, str) or not value:
         return None
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+@dataclass(frozen=True)
+class GitHubTokenStatus:
+    """Safe token availability status that never includes secret values."""
+
+    linked: bool
+    token_available: bool
+    provider: Literal["github"] = "github"
 
 
 @dataclass(frozen=True)

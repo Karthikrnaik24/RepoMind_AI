@@ -2,24 +2,22 @@
 
 from typing import Any
 
-from app.domain.github import GitHubTokenProvider, RepositorySummary
+from app.domain.github import GitHubTokenProvider, GitHubTokenStatus, RepositorySummary
 from app.domain.identity import AuthenticatedUser
 from app.infrastructure.github import GitHubClient
 
 
 class GitHubService:
-    """Coordinates GitHub use cases without exposing HTTP details."""
+    """Coordinates GitHub use cases without exposing HTTP details or tokens."""
 
     def __init__(self, client: GitHubClient, token_provider: GitHubTokenProvider) -> None:
         self._client = client
         self._token_provider = token_provider
 
-    def verify_linked_account(self, authenticated_user: AuthenticatedUser) -> bool:
-        """Verify that the current user has a usable linked GitHub token."""
+    def get_token_status(self, authenticated_user: AuthenticatedUser) -> GitHubTokenStatus:
+        """Return safe GitHub token availability for the authenticated user."""
 
-        token = self._token_provider.get_access_token(authenticated_user)
-        self._client.request_json("GET", "/user", token=token)
-        return True
+        return self._token_provider.get_token_status(authenticated_user)
 
     def to_repository_summary(self, payload: dict[str, Any]) -> RepositorySummary:
         """Map a GitHub repository payload into a RepoMind AI DTO."""

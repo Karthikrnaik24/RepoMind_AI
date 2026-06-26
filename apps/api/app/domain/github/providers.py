@@ -2,11 +2,12 @@
 
 from typing import Protocol
 
+from app.domain.github.entities import GitHubTokenStatus
 from app.domain.identity import AuthenticatedUser
 
 
 class GitHubTokenProvider(Protocol):
-    """Provides GitHub OAuth access tokens for linked identities."""
+    """Provides safe GitHub OAuth token status for linked identities."""
 
-    def get_access_token(self, authenticated_user: AuthenticatedUser) -> str:
-        """Return a GitHub OAuth token for the authenticated user."""
+    def get_token_status(self, authenticated_user: AuthenticatedUser) -> GitHubTokenStatus:
+        """Return safe GitHub token status without exposing secret values."""

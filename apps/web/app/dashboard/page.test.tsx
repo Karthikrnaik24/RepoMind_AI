@@ -1,10 +1,11 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 
 import React from "react";
 import "@testing-library/jest-dom/vitest";
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const getGitHubTokenDebugStatusMock = vi.fn();
 const replaceMock = vi.fn();
 const useAuthMock = vi.fn();
 const useSearchParamsMock = vi.fn(() => new URLSearchParams());
@@ -14,14 +15,32 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => useSearchParamsMock(),
 }));
 
+vi.mock("../../api/github", () => ({
+  getGitHubTokenDebugStatus: (...args: unknown[]) => getGitHubTokenDebugStatusMock(...args),
+}));
+
 vi.mock("../../features/auth/auth-hooks", () => ({
   useAuth: () => useAuthMock(),
 }));
 
 import DashboardPage from "./page";
 
+beforeEach(() => {
+  getGitHubTokenDebugStatusMock.mockResolvedValue({
+    github_linked: false,
+    token_available: false,
+    provider: "github",
+  });
+});
+
 afterEach(() => {
   cleanup();
+  getGitHubTokenDebugStatusMock.mockReset();
+  getGitHubTokenDebugStatusMock.mockResolvedValue({
+    github_linked: false,
+    token_available: false,
+    provider: "github",
+  });
   replaceMock.mockReset();
   useAuthMock.mockReset();
   useSearchParamsMock.mockReturnValue(new URLSearchParams());
@@ -134,5 +153,37 @@ describe("DashboardPage", () => {
     render(<DashboardPage />);
 
     expect(screen.getByText("GitHub linking was cancelled.")).toBeInTheDocument();
+  });
+
+  it("shows developer-only GitHub token debug status", async () => {
+    getGitHubTokenDebugStatusMock.mockResolvedValue({
+      github_linked: true,
+      token_available: true,
+      provider: "github",
+    });
+    useAuthMock.mockReturnValue({
+      authError: null,
+      linkGitHubIdentity: vi.fn(),
+      loading: false,
+      refreshSession: vi.fn(),
+      session: { access_token: "sample" },
+      signOut: vi.fn(),
+      user: {
+        app_metadata: { provider: "google" },
+        email: "engineer@example.com",
+        identities: [{ provider: "google" }, { provider: "github" }],
+        user_metadata: { full_name: "Ada Engineer" },
+      },
+    });
+
+    render(<DashboardPage />);
+
+    expect(screen.getByText("GitHub Token Debug")).toBeInTheDocument();
+    await waitFor(() => expect(getGitHubTokenDebugStatusMock).toHaveBeenCalledOnce());
+    expect(screen.getByText("GitHub Linked")).toBeInTheDocument();
+    expect(screen.getByText("Token Available")).toBeInTheDocument();
+    expect(screen.getByText("Provider")).toBeInTheDocument();
+    expect(screen.getByText("github")).toBeInTheDocument();
+    expect(screen.queryByText("sample")).not.toBeInTheDocument();
   });
 });

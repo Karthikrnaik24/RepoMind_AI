@@ -2,26 +2,61 @@
 
 from typing import Any
 
-from app.domain.github import GitHubTokenProvider
+from app.domain.github import GitHubTokenProvider, GitHubTokenStatus
 from app.domain.identity import AuthenticatedUser
-from app.infrastructure.github.exceptions import GitHubUnauthorized
+from app.infrastructure.github.exceptions import GitHubProviderNotLinked, GitHubTokenUnavailable
 
 
 class SupabaseLinkedIdentityGitHubTokenProvider(GitHubTokenProvider):
-    """Extracts a linked GitHub OAuth token from verified identity metadata.
+    """Inspects linked GitHub OAuth token availability from identity metadata.
 
-    The current authentication pipeline does not persist provider tokens yet.
-    This adapter establishes the boundary future secure token storage or
-    Supabase session refresh logic will implement without changing services.
+    The provider token never leaves this infrastructure adapter. Public callers
+    receive only a safe availability status for diagnostics and future business
+    decisions.
     """
 
-    def get_access_token(self, authenticated_user: AuthenticatedUser) -> str:
-        """Return the linked GitHub OAuth token if present in metadata."""
+    def get_token_status(self, authenticated_user: AuthenticatedUser) -> GitHubTokenStatus:
+        """Return safe linked GitHub token status without exposing the token."""
 
-        token = self._find_token(authenticated_user.metadata)
+        try:
+            self._require_access_token(authenticated_user.metadata)
+        except GitHubProviderNotLinked:
+            return GitHubTokenStatus(linked=False, token_available=False)
+        except GitHubTokenUnavailable:
+            return GitHubTokenStatus(linked=True, token_available=False)
+
+        return GitHubTokenStatus(linked=True, token_available=True)
+
+    def _require_access_token(self, metadata: dict[str, Any]) -> str:
+        if not self._is_github_linked(metadata):
+            raise GitHubProviderNotLinked()
+
+        token = self._find_token(metadata)
         if not token:
-            raise GitHubUnauthorized("Linked GitHub OAuth token is unavailable.")
+            raise GitHubTokenUnavailable()
         return token
+
+    def _is_github_linked(self, metadata: dict[str, Any]) -> bool:
+        providers = metadata.get("providers")
+        if isinstance(providers, list) and "github" in providers:
+            return True
+
+        app_metadata = metadata.get("app_metadata")
+        if isinstance(app_metadata, dict):
+            app_providers = app_metadata.get("providers")
+            if isinstance(app_providers, list) and "github" in app_providers:
+                return True
+            if app_metadata.get("provider") == "github":
+                return True
+
+        identities = metadata.get("identities")
+        if not isinstance(identities, list):
+            return False
+
+        return any(
+            isinstance(identity, dict) and identity.get("provider") == "github"
+            for identity in identities
+        )
 
     def _find_token(self, metadata: dict[str, Any]) -> str | None:
         token = metadata.get("github_access_token") or metadata.get("provider_token")

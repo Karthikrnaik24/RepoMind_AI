@@ -16,6 +16,20 @@ class GitHubUnauthorized(AuthenticationException):
     message = "GitHub authentication is required."
 
 
+class GitHubProviderNotLinked(GitHubUnauthorized):
+    """Raised when the authenticated user has no linked GitHub identity."""
+
+    code = "github_provider_not_linked"
+    message = "GitHub is not linked for this account."
+
+
+class GitHubTokenUnavailable(GitHubUnauthorized):
+    """Raised when a linked GitHub identity has no available provider token."""
+
+    code = "github_token_unavailable"
+    message = "GitHub provider token is unavailable."
+
+
 class GitHubRateLimited(ExternalServiceException):
     """Raised when GitHub rate limits the current token or integration."""
 
