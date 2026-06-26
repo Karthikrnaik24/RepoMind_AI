@@ -1,15 +1,16 @@
 "use client";
 
 import React from "react";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import type { Session, User } from "@supabase/supabase-js";
-import { BadgeCheck, CircleAlert, Github } from "lucide-react";
+import { BadgeCheck, CircleAlert, Github, Globe2, Lock, Search } from "lucide-react";
 
 import {
-  getGitHubTokenDebugStatus,
-  type GitHubTokenDebugStatus,
+  getGitHubRepositories,
+  type GitHubRepositorySummary,
+  type GitHubRepositoryVisibility,
 } from "../../api/github";
 import { useAuth } from "../../features/auth/auth-hooks";
 import { RequireAuth } from "../../features/auth/require-auth";
@@ -20,8 +21,6 @@ const githubLinkErrorMessages: Record<string, string> = {
   oauth_failed: "GitHub linking failed. Please try again.",
   provider_unavailable: "GitHub linking is unavailable right now.",
 };
-
-const isDeveloperMode = process.env.NODE_ENV !== "production";
 
 function getDisplayName(user: User | null) {
   const fullName = user?.user_metadata?.full_name;
@@ -74,6 +73,18 @@ function getProviderMessage(searchParams: URLSearchParams, authError: string | n
   return githubLinkErrorMessages[githubLinkError] ?? githubLinkErrorMessages.oauth_failed;
 }
 
+function formatUpdatedAt(value: string | null) {
+  if (!value) {
+    return "No recent updates";
+  }
+
+  return new Intl.DateTimeFormat("en", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(value));
+}
+
 type ProviderStatusProps = {
   connected: boolean;
   label: string;
@@ -105,50 +116,208 @@ function ProviderStatus({ connected, label }: ProviderStatusProps) {
   );
 }
 
-type GitHubDebugCardProps = {
-  error: string | null;
-  loading: boolean;
-  status: GitHubTokenDebugStatus | null;
-};
-
-function formatDebugValue(value: boolean | undefined) {
-  if (value === undefined) {
-    return "Unknown";
-  }
-
-  return value ? "Yes" : "No";
+function RepositorySkeletons() {
+  return (
+    <div className="grid gap-3">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+          <div className="h-4 w-2/5 animate-pulse rounded bg-muted" />
+          <div className="mt-3 h-3 w-3/4 animate-pulse rounded bg-muted" />
+          <div className="mt-5 flex gap-2">
+            <div className="h-6 w-20 animate-pulse rounded bg-muted" />
+            <div className="h-6 w-24 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
 }
 
-function GitHubDebugCard({ error, loading, status }: GitHubDebugCardProps) {
+type RepositoryCardProps = {
+  repository: GitHubRepositorySummary;
+};
+
+function RepositoryCard({ repository }: RepositoryCardProps) {
+  return (
+    <article className="rounded-lg border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h3 className="text-base font-semibold text-card-foreground">{repository.name}</h3>
+          <p className="mt-1 text-xs text-muted-foreground">{repository.owner.login}</p>
+        </div>
+        <span className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
+          {repository.private ? <Lock aria-hidden="true" className="h-3 w-3" /> : <Globe2 aria-hidden="true" className="h-3 w-3" />}
+          {repository.visibility ?? (repository.private ? "private" : "public")}
+        </span>
+      </div>
+      <p className="mt-3 text-sm text-muted-foreground">
+        {repository.description ?? "No description provided."}
+      </p>
+      <div className="mt-4 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+        <span className="rounded-md border border-border bg-background px-2 py-1">
+          {repository.language ?? "Unknown language"}
+        </span>
+        <span className="rounded-md border border-border bg-background px-2 py-1">
+          Default: {repository.default_branch}
+        </span>
+        <span className="rounded-md border border-border bg-background px-2 py-1">
+          Updated {formatUpdatedAt(repository.updated_at)}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+type RepositoryBrowserProps = {
+  isGitHubConnected: boolean;
+  session: Session | null;
+};
+
+function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProps) {
+  const [repositories, setRepositories] = useState<GitHubRepositorySummary[]>([]);
+  const [search, setSearch] = useState("");
+  const [visibility, setVisibility] = useState<GitHubRepositoryVisibility>("all");
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canGoNext = repositories.length >= 12;
+
+  useEffect(() => {
+    if (!session || !isGitHubConnected) {
+      setRepositories([]);
+      return;
+    }
+
+    let isMounted = true;
+    async function loadRepositories(currentSession: Session) {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await getGitHubRepositories(
+          { getSession: async () => currentSession },
+          { page, perPage: 12, search, visibility },
+        );
+        if (isMounted) {
+          setRepositories(result.data);
+        }
+      } catch {
+        if (isMounted) {
+          setRepositories([]);
+          setError("Repository discovery is unavailable right now.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    void loadRepositories(session);
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isGitHubConnected, page, search, session, visibility]);
+
+  const emptyMessage = useMemo(() => {
+    if (!isGitHubConnected) {
+      return "Connect GitHub to browse repositories.";
+    }
+    if (search || visibility !== "all") {
+      return "No repositories match the current search or filter.";
+    }
+    return "No repositories were found for this GitHub account.";
+  }, [isGitHubConnected, search, visibility]);
+
   return (
     <section className="pb-8">
-      <div className="rounded-lg border border-dashed border-border bg-card p-5 shadow-sm">
-        <div>
-          <p className="text-xs font-medium uppercase text-muted-foreground">Developer Mode</p>
-          <h2 className="mt-2 text-lg font-semibold text-card-foreground">GitHub Token Debug</h2>
+      <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-card-foreground">Repositories</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Browse linked GitHub repositories before registration and indexing are enabled.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <label className="relative block">
+              <span className="sr-only">Search repositories</span>
+              <Search aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={(event) => {
+                  setPage(1);
+                  setSearch(event.target.value);
+                }}
+                placeholder="Search repositories"
+                className="h-10 w-full rounded-md border border-border bg-background pl-9 pr-3 text-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-primary sm:w-64"
+              />
+            </label>
+            <label>
+              <span className="sr-only">Visibility filter</span>
+              <select
+                value={visibility}
+                onChange={(event) => {
+                  setPage(1);
+                  setVisibility(event.target.value as GitHubRepositoryVisibility);
+                }}
+                className="h-10 rounded-md border border-border bg-background px-3 text-sm outline-none transition-colors focus:border-primary"
+              >
+                <option value="all">All</option>
+                <option value="public">Public</option>
+                <option value="private">Private</option>
+              </select>
+            </label>
+          </div>
         </div>
 
-        {loading ? <p className="mt-4 text-sm text-muted-foreground">Checking GitHub token status...</p> : null}
-        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+        {error ? (
+          <p className="mt-4 inline-flex items-center gap-2 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+            <CircleAlert aria-hidden="true" className="h-4 w-4" />
+            {error}
+          </p>
+        ) : null}
 
-        <dl className="mt-5 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-md border border-border bg-background p-3">
-            <dt className="text-xs text-muted-foreground">GitHub Linked</dt>
-            <dd className="mt-1 text-sm font-medium text-foreground">
-              {formatDebugValue(status?.github_linked)}
-            </dd>
+        <div className="mt-5">
+          {loading ? <RepositorySkeletons /> : null}
+          {!loading && repositories.length > 0 ? (
+            <div className="grid gap-3">
+              {repositories.map((repository) => (
+                <RepositoryCard key={repository.id} repository={repository} />
+              ))}
+            </div>
+          ) : null}
+          {!loading && repositories.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border bg-background p-8 text-center">
+              <Github aria-hidden="true" className="mx-auto h-8 w-8 text-muted-foreground" />
+              <h3 className="mt-4 text-base font-semibold text-foreground">No repositories to show</h3>
+              <p className="mt-2 text-sm text-muted-foreground">{emptyMessage}</p>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between border-t border-border pt-4 text-sm">
+          <span className="text-muted-foreground">Page {page}</span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={page === 1 || loading}
+              onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+              className="h-9 rounded-md border border-border px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Previous
+            </button>
+            <button
+              type="button"
+              disabled={!canGoNext || loading}
+              onClick={() => setPage((currentPage) => currentPage + 1)}
+              className="h-9 rounded-md border border-border px-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Next
+            </button>
           </div>
-          <div className="rounded-md border border-border bg-background p-3">
-            <dt className="text-xs text-muted-foreground">Token Available</dt>
-            <dd className="mt-1 text-sm font-medium text-foreground">
-              {formatDebugValue(status?.token_available)}
-            </dd>
-          </div>
-          <div className="rounded-md border border-border bg-background p-3">
-            <dt className="text-xs text-muted-foreground">Provider</dt>
-            <dd className="mt-1 text-sm font-medium text-foreground">{status?.provider ?? "github"}</dd>
-          </div>
-        </dl>
+        </div>
       </div>
     </section>
   );
@@ -163,48 +332,10 @@ function DashboardContent() {
   const isGoogleConnected = connectedProviders.has("google");
   const isGitHubConnected = connectedProviders.has("github");
   const providerMessage = getProviderMessage(searchParams, authError);
-  const [githubDebugStatus, setGitHubDebugStatus] = useState<GitHubTokenDebugStatus | null>(null);
-  const [githubDebugLoading, setGitHubDebugLoading] = useState(false);
-  const [githubDebugError, setGitHubDebugError] = useState<string | null>(null);
 
   useEffect(() => {
     void refreshSession();
   }, [refreshSession]);
-
-  useEffect(() => {
-    if (!isDeveloperMode || !session) {
-      return;
-    }
-
-    let isMounted = true;
-    async function loadGitHubDebugStatus(currentSession: Session) {
-      setGitHubDebugLoading(true);
-      setGitHubDebugError(null);
-      try {
-        const status = await getGitHubTokenDebugStatus({
-          getSession: async () => currentSession,
-        });
-        if (isMounted) {
-          setGitHubDebugStatus(status);
-        }
-      } catch {
-        if (isMounted) {
-          setGitHubDebugStatus(null);
-          setGitHubDebugError("GitHub token debug is unavailable.");
-        }
-      } finally {
-        if (isMounted) {
-          setGitHubDebugLoading(false);
-        }
-      }
-    }
-
-    void loadGitHubDebugStatus(session);
-
-    return () => {
-      isMounted = false;
-    };
-  }, [session]);
 
   return (
     <main className="min-h-[calc(100vh-4rem)] bg-background px-6 py-10 text-foreground">
@@ -275,17 +406,7 @@ function DashboardContent() {
           </div>
         </section>
 
-        {isDeveloperMode ? (
-          <GitHubDebugCard
-            error={githubDebugError}
-            loading={githubDebugLoading}
-            status={githubDebugStatus}
-          />
-        ) : null}
-
-        <div className="pb-8 text-sm text-muted-foreground">
-          Repository features will be introduced in a future sprint.
-        </div>
+        <RepositoryBrowser isGitHubConnected={isGitHubConnected} session={session} />
       </section>
     </main>
   );

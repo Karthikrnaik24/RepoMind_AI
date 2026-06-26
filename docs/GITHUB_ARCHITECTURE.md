@@ -130,6 +130,82 @@ GitHub failures are centralized as typed exceptions:
 Future API routes should translate these through the existing standard response
 envelope.
 
+
+## Repository Discovery Flow
+
+Sprint 3.9C adds read-only repository discovery through:
+
+`GET /api/v1/github/repositories`
+
+The endpoint is protected by the existing Supabase JWT authentication pipeline.
+It requires a linked GitHub identity with an available provider token, then uses
+`GitHubService`, `GitHubTokenProvider`, and `GitHubClient` to fetch one page of
+repositories from GitHub.
+
+```mermaid
+sequenceDiagram
+    participant UI as Dashboard Repository Browser
+    participant API as /api/v1/github/repositories
+    participant Auth as CurrentUser Dependency
+    participant Service as GitHubService
+    participant TokenProvider as GitHubTokenProvider
+    participant Client as GitHubClient
+    participant GitHub as GitHub REST API
+
+    UI->>API: GET repositories with page/search/filter
+    API->>Auth: Validate Supabase JWT
+    Auth-->>API: AuthenticatedUser
+    API->>Service: list_repositories(user, query)
+    Service->>TokenProvider: Resolve linked GitHub token
+    TokenProvider-->>Service: Infrastructure-only token
+    Service->>Client: GET /user/repos
+    Client->>GitHub: Authenticated request
+    GitHub-->>Client: Repository JSON page
+    Client-->>Service: Decoded JSON
+    Service-->>API: RepositorySummary DTOs
+    API-->>UI: Safe repository response DTOs
+```
+
+Repository discovery is intentionally read-only. It does not register
+repositories, clone repositories, create embeddings, index source code, or start
+AI workflows.
+
+## GitHub Pagination and Filters
+
+Repository discovery supports these query parameters:
+
+- `page`: one-based GitHub page number.
+- `per_page`: page size, capped by the backend at 100.
+- `sort`: `created`, `updated`, `pushed`, or `full_name`.
+- `direction`: `asc` or `desc`.
+- `visibility`: `all`, `public`, or `private`.
+- `search`: backend name filter applied after the GitHub page is fetched.
+
+The backend forwards pagination, sort, direction, and visibility to GitHub.
+Search filtering is intentionally local to the fetched page for Sprint 3.9C.
+Future sprints can introduce GitHub search APIs or cached repository discovery
+if broader search semantics are needed.
+
+## Repository Discovery DTO Mapping
+
+The API returns only RepoMind AI repository summary DTOs:
+
+- `id`
+- `name`
+- `full_name`
+- `owner`
+- `private`
+- `visibility`
+- `language`
+- `default_branch`
+- `updated_at`
+- `description`
+- `html_url`
+- `permissions`
+
+Raw GitHub JSON, provider tokens, refresh tokens, and unrelated GitHub fields
+must not be returned to the frontend.
+
 ## Future Repository Features
 
 Future repository features should follow this path:

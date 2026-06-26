@@ -7,7 +7,10 @@ from app.domain.identity import AuthenticatedUser
 
 
 class GitHubTokenProvider(Protocol):
-    """Provides safe GitHub OAuth token status for linked identities."""
+    """Provides GitHub OAuth token access behind infrastructure boundaries."""
 
     def get_token_status(self, authenticated_user: AuthenticatedUser) -> GitHubTokenStatus:
         """Return safe GitHub token status without exposing secret values."""
+
+    def get_access_token(self, authenticated_user: AuthenticatedUser) -> str:
+        """Return a GitHub OAuth token for infrastructure-only API calls."""

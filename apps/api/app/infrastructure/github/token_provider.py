@@ -8,18 +8,18 @@ from app.infrastructure.github.exceptions import GitHubProviderNotLinked, GitHub
 
 
 class SupabaseLinkedIdentityGitHubTokenProvider(GitHubTokenProvider):
-    """Inspects linked GitHub OAuth token availability from identity metadata.
+    """Inspects and resolves linked GitHub OAuth tokens from identity metadata.
 
-    The provider token never leaves this infrastructure adapter. Public callers
-    receive only a safe availability status for diagnostics and future business
-    decisions.
+    API routes and DTOs receive only safe token status. Raw access tokens are
+    returned only to infrastructure/application plumbing that immediately calls
+    GitHub and must never be serialized or logged.
     """
 
     def get_token_status(self, authenticated_user: AuthenticatedUser) -> GitHubTokenStatus:
         """Return safe linked GitHub token status without exposing the token."""
 
         try:
-            self._require_access_token(authenticated_user.metadata)
+            self.get_access_token(authenticated_user)
         except GitHubProviderNotLinked:
             return GitHubTokenStatus(linked=False, token_available=False)
         except GitHubTokenUnavailable:
@@ -27,7 +27,10 @@ class SupabaseLinkedIdentityGitHubTokenProvider(GitHubTokenProvider):
 
         return GitHubTokenStatus(linked=True, token_available=True)
 
-    def _require_access_token(self, metadata: dict[str, Any]) -> str:
+    def get_access_token(self, authenticated_user: AuthenticatedUser) -> str:
+        """Return the linked GitHub OAuth token for GitHub API calls."""
+
+        metadata = authenticated_user.metadata
         if not self._is_github_linked(metadata):
             raise GitHubProviderNotLinked()
 
