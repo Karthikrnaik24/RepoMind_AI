@@ -15,11 +15,16 @@ class SupabaseLinkedIdentityGitHubTokenProvider(GitHubTokenProvider):
     GitHub and must never be serialized or logged.
     """
 
-    def get_token_status(self, authenticated_user: AuthenticatedUser) -> GitHubTokenStatus:
+    def get_token_status(
+        self,
+        authenticated_user: AuthenticatedUser,
+        *,
+        provider_token: str | None = None,
+    ) -> GitHubTokenStatus:
         """Return safe linked GitHub token status without exposing the token."""
 
         try:
-            self.get_access_token(authenticated_user)
+            self.get_access_token(authenticated_user, provider_token=provider_token)
         except GitHubProviderNotLinked:
             return GitHubTokenStatus(linked=False, token_available=False)
         except GitHubTokenUnavailable:
@@ -27,12 +32,27 @@ class SupabaseLinkedIdentityGitHubTokenProvider(GitHubTokenProvider):
 
         return GitHubTokenStatus(linked=True, token_available=True)
 
-    def get_access_token(self, authenticated_user: AuthenticatedUser) -> str:
-        """Return the linked GitHub OAuth token for GitHub API calls."""
+    def get_access_token(
+        self,
+        authenticated_user: AuthenticatedUser,
+        *,
+        provider_token: str | None = None,
+    ) -> str:
+        """Return the linked GitHub OAuth token for GitHub API calls.
+
+        Supabase exposes provider tokens on the active session after OAuth or
+        identity linking. The backend still requires the JWT claims to show that
+        GitHub is linked before accepting an ephemeral provider token from the
+        current request.
+        """
 
         metadata = authenticated_user.metadata
         if not self._is_github_linked(metadata):
             raise GitHubProviderNotLinked()
+
+        explicit_token = self._normalize_token(provider_token)
+        if explicit_token:
+            return explicit_token
 
         token = self._find_token(metadata)
         if not token:
@@ -62,8 +82,10 @@ class SupabaseLinkedIdentityGitHubTokenProvider(GitHubTokenProvider):
         )
 
     def _find_token(self, metadata: dict[str, Any]) -> str | None:
-        token = metadata.get("github_access_token") or metadata.get("provider_token")
-        if isinstance(token, str) and token.strip():
+        token = self._normalize_token(metadata.get("github_access_token")) or self._normalize_token(
+            metadata.get("provider_token")
+        )
+        if token:
             return token
 
         identities = metadata.get("identities")
@@ -76,7 +98,13 @@ class SupabaseLinkedIdentityGitHubTokenProvider(GitHubTokenProvider):
             identity_data = identity.get("identity_data")
             if not isinstance(identity_data, dict):
                 continue
-            identity_token = identity_data.get("provider_token")
-            if isinstance(identity_token, str) and identity_token.strip():
+            identity_token = self._normalize_token(identity_data.get("provider_token"))
+            if identity_token:
                 return identity_token
+        return None
+
+    @staticmethod
+    def _normalize_token(token: Any) -> str | None:
+        if isinstance(token, str) and token.strip():
+            return token.strip()
         return None

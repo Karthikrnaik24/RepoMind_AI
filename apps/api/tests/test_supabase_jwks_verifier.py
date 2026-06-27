@@ -1,4 +1,4 @@
-﻿import base64
+import base64
 import hashlib
 import hmac
 import json
@@ -17,8 +17,8 @@ AUDIENCE = "authenticated"
 JWKS_URL = "https://test-project.supabase.co/auth/v1/.well-known/jwks.json"
 
 
-def base64url_uint(value: int) -> str:
-    raw = value.to_bytes((value.bit_length() + 7) // 8, "big")
+def base64url_uint(value: int, length: int = 32) -> str:
+    raw = value.to_bytes(length, "big")
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode()
 
 
@@ -205,5 +205,6 @@ def test_hs256_token_without_secret_is_rejected() -> None:
         verifier.verify(token)
 
     assert exc_info.value.code == "invalid_token_claims"
+
 
 

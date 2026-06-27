@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 
 from app.application.services import GitHubService
 from app.domain.identity import AuthenticatedUser
@@ -30,6 +30,7 @@ def list_github_repositories(
     direction: Literal["asc", "desc"] = "desc",
     visibility: Literal["all", "public", "private"] = "all",
     search: Annotated[str | None, Query(max_length=100)] = None,
+    github_provider_token: Annotated[str | None, Header(alias="X-GitHub-Provider-Token")] = None,
 ) -> dict:
     """Return linked GitHub repositories as safe DTOs, using GitHub search when requested."""
 
@@ -41,6 +42,7 @@ def list_github_repositories(
         direction=direction,
         visibility=visibility,
         search=search,
+        provider_token=github_provider_token,
     )
     data = [GitHubRepositorySummaryResponse.from_domain(repository) for repository in repositories]
     return success_response(

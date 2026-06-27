@@ -34,14 +34,27 @@ class FakeGitHubClient:
 class FakeTokenProvider:
     def __init__(self) -> None:
         self.last_user: AuthenticatedUser | None = None
+        self.last_provider_token: str | None = None
 
-    def get_token_status(self, user: AuthenticatedUser) -> GitHubTokenStatus:
+    def get_token_status(
+        self,
+        user: AuthenticatedUser,
+        *,
+        provider_token: str | None = None,
+    ) -> GitHubTokenStatus:
         self.last_user = user
+        self.last_provider_token = provider_token
         return GitHubTokenStatus(linked=True, token_available=True)
 
-    def get_access_token(self, user: AuthenticatedUser) -> str:
+    def get_access_token(
+        self,
+        user: AuthenticatedUser,
+        *,
+        provider_token: str | None = None,
+    ) -> str:
         self.last_user = user
-        return SAMPLE_ACCESS_VALUE
+        self.last_provider_token = provider_token
+        return provider_token or SAMPLE_ACCESS_VALUE
 
 
 def repository_payload(*, name: str = "RepoMind_AI", private: bool = True) -> dict[str, Any]:
@@ -97,6 +110,7 @@ def test_github_service_delegates_token_status_without_exposing_token(
     status = service.get_token_status(authenticated_user)
 
     assert provider.last_user == authenticated_user
+    assert provider.last_provider_token is None
     assert status.linked is True
     assert status.token_available is True
     assert status.provider == "github"
@@ -143,6 +157,28 @@ def test_list_repositories_uses_pagination_and_filters(
     }
 
 
+def test_list_repositories_uses_request_provider_token(
+    authenticated_user: AuthenticatedUser,
+) -> None:
+    client = FakeGitHubClient([repository_payload(private=False)])
+    provider = FakeTokenProvider()
+    service = GitHubService(client, provider)  # type: ignore[arg-type]
+
+    repositories = service.list_repositories(
+        authenticated_user,
+        page=1,
+        per_page=12,
+        sort="updated",
+        direction="desc",
+        visibility="all",
+        provider_token="request-provider-token",  # noqa: S106
+    )
+
+    assert len(repositories) == 1
+    assert provider.last_provider_token == "request-provider-token"  # noqa: S105
+    assert client.last_access_value == "request-provider-token"  # noqa: S105
+
+
 def test_search_repositories_uses_github_search_api(authenticated_user: AuthenticatedUser) -> None:
     client = FakeGitHubClient({"items": [repository_payload(name="RepoMind_AI", private=False)]})
     service = GitHubService(client, FakeTokenProvider())  # type: ignore[arg-type]
@@ -166,3 +202,4 @@ def test_search_repositories_uses_github_search_api(authenticated_user: Authenti
         "sort": "updated",
         "order": "desc",
     }
+

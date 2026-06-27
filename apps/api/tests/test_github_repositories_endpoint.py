@@ -1,4 +1,4 @@
-﻿from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -26,7 +26,13 @@ class FakeGitHubService:
         self.repositories = repositories
         self.last_kwargs: dict[str, Any] | None = None
 
-    def get_token_status(self, _: AuthenticatedUser) -> GitHubTokenStatus:
+    def get_token_status(
+        self,
+        _: AuthenticatedUser,
+        *,
+        provider_token: str | None = None,
+    ) -> GitHubTokenStatus:
+        self.last_kwargs = {"provider_token": provider_token}
         return GitHubTokenStatus(linked=True, token_available=True)
 
     def list_repositories(self, _: AuthenticatedUser, **kwargs: Any) -> list[RepositorySummary]:
@@ -89,10 +95,30 @@ async def test_repositories_endpoint_passes_query_parameters() -> None:
         "direction": "asc",
         "visibility": "private",
         "search": "repo",
+        "provider_token": None,
     }
     payload = response.json()
     assert payload["meta"]["page"] == 3
     assert payload["meta"]["search_scope"] == "github"
+
+
+@pytest.mark.asyncio
+async def test_repositories_endpoint_passes_provider_token_header_without_returning_it() -> None:
+    service = FakeGitHubService([])
+
+    async with create_test_client(service) as client:
+        response = await client.get(
+            "/api/v1/github/repositories",
+            headers={
+                **auth_headers(),
+                "X-GitHub-Provider-Token": "request-provider-token",
+            },
+        )
+
+    assert response.status_code == 200
+    assert service.last_kwargs is not None
+    assert service.last_kwargs["provider_token"] == "request-provider-token"  # noqa: S105
+    assert "request-provider-token" not in response.text
 
 
 @pytest.mark.asyncio
@@ -104,3 +130,6 @@ async def test_repositories_endpoint_is_protected() -> None:
 
     assert response.status_code == 401
     assert response.json()["success"] is False
+
+
+

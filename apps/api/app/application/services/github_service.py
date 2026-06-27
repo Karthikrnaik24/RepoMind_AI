@@ -19,10 +19,18 @@ class GitHubService:
         self._client = client
         self._token_provider = token_provider
 
-    def get_token_status(self, authenticated_user: AuthenticatedUser) -> GitHubTokenStatus:
+    def get_token_status(
+        self,
+        authenticated_user: AuthenticatedUser,
+        *,
+        provider_token: str | None = None,
+    ) -> GitHubTokenStatus:
         """Return safe GitHub token availability for the authenticated user."""
 
-        return self._token_provider.get_token_status(authenticated_user)
+        return self._token_provider.get_token_status(
+            authenticated_user,
+            provider_token=provider_token,
+        )
 
     def list_repositories(
         self,
@@ -34,6 +42,7 @@ class GitHubService:
         direction: GitHubRepositoryDirection,
         visibility: GitHubRepositoryVisibility,
         search: str | None = None,
+        provider_token: str | None = None,
     ) -> list[RepositorySummary]:
         """Fetch one page of GitHub repositories and map them into safe DTOs."""
 
@@ -46,9 +55,13 @@ class GitHubService:
                 direction=direction,
                 visibility=visibility,
                 search=search,
+                provider_token=provider_token,
             )
 
-        token = self._token_provider.get_access_token(authenticated_user)
+        token = self._token_provider.get_access_token(
+            authenticated_user,
+            provider_token=provider_token,
+        )
         payload = self._client.request_json(
             "GET",
             "/user/repos",
@@ -76,10 +89,14 @@ class GitHubService:
         direction: GitHubRepositoryDirection,
         visibility: GitHubRepositoryVisibility,
         search: str,
+        provider_token: str | None = None,
     ) -> list[RepositorySummary]:
         """Search repositories through GitHub Search API instead of local page filtering."""
 
-        token = self._token_provider.get_access_token(authenticated_user)
+        token = self._token_provider.get_access_token(
+            authenticated_user,
+            provider_token=provider_token,
+        )
         query = self._build_search_query(search, visibility)
         payload = self._client.request_json(
             "GET",
@@ -107,10 +124,14 @@ class GitHubService:
         authenticated_user: AuthenticatedUser,
         *,
         full_name: str,
+        provider_token: str | None = None,
     ) -> RepositorySummary:
         """Fetch one GitHub repository visible to the authenticated GitHub token."""
 
-        token = self._token_provider.get_access_token(authenticated_user)
+        token = self._token_provider.get_access_token(
+            authenticated_user,
+            provider_token=provider_token,
+        )
         normalized_full_name = full_name.strip()
         encoded_full_name = quote(normalized_full_name, safe="/")
         payload = self._client.request_json(

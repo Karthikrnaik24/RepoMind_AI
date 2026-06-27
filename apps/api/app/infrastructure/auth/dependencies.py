@@ -1,8 +1,3 @@
-"""Authentication dependency placeholders.
-
-These providers prepare authentication wiring without implementing login, OAuth,
-RBAC, user synchronization, or authentication middleware.
-"""
 """Authentication dependencies for protected API routes."""
 
 import logging
@@ -89,7 +84,7 @@ def get_current_user(
             "JWT authentication failed",
             extra={
                 "code": exc.code,
-                "message": exc.message,
+                "error_message": exc.message,
                 "details": exc.details,
             },
         )
@@ -100,7 +95,7 @@ def get_current_user(
             "JWT authorization exception converted to authentication failure",
             extra={
                 "code": exc.code,
-                "message": exc.message,
+                "error_message": exc.message,
                 "details": exc.details,
             },
         )
@@ -116,3 +111,4 @@ def get_current_user(
             "Invalid JWT.",
             code="invalid_token",
         ) from exc
+

@@ -1,4 +1,4 @@
-﻿import type { Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 
 import { createApiClient } from "./client";
 
@@ -64,6 +64,7 @@ export type GitHubRepositoryVisibility = "all" | "public" | "private";
 export type GitHubRepositoryDiscoveryErrorCode =
   | "github_unavailable"
   | "rate_limited"
+  | "reconnect_required"
   | "token_expired"
   | "fetch_failed";
 
@@ -81,6 +82,18 @@ type ApiSuccessEnvelope<T> = {
   success: true;
   data: T;
   meta: Record<string, unknown>;
+};
+
+type ApiErrorEnvelope = {
+  success: false;
+  error?: {
+    code?: string;
+    message?: string;
+  };
+};
+
+type SessionWithProviderToken = Session & {
+  provider_token?: string | null;
 };
 
 type GitHubApiOptions = {
@@ -102,20 +115,45 @@ type RegisterRepositoryInput = {
   default_branch: string;
 };
 
-function getRepositoryErrorCode(status: number): GitHubRepositoryDiscoveryErrorCode {
+function getRepositoryErrorCode(
+  status: number,
+  apiErrorCode?: string,
+): GitHubRepositoryDiscoveryErrorCode {
   if (status === 401) {
+    if (
+      apiErrorCode === "github_reconnect_required" ||
+      apiErrorCode === "github_token_unavailable"
+    ) {
+      return "reconnect_required";
+    }
+
     return "token_expired";
   }
 
-  if (status === 429) {
+  if (status === 429 || apiErrorCode === "github_rate_limited") {
     return "rate_limited";
   }
 
-  if (status >= 500) {
+  if (status >= 500 || apiErrorCode === "github_unavailable") {
     return "github_unavailable";
   }
 
   return "fetch_failed";
+}
+
+function getGitHubProviderToken(session: Session | null): string | null {
+  const providerToken = (session as SessionWithProviderToken | null)?.provider_token;
+
+  return typeof providerToken === "string" && providerToken.trim() ? providerToken : null;
+}
+
+async function parseFailure(response: Response): Promise<GitHubRepositoryDiscoveryErrorCode> {
+  try {
+    const payload = (await response.json()) as ApiErrorEnvelope;
+    return getRepositoryErrorCode(response.status, payload.error?.code);
+  } catch {
+    return getRepositoryErrorCode(response.status);
+  }
 }
 
 async function parseSuccess<T>(response: Response): Promise<ApiSuccessEnvelope<T>> {
@@ -126,7 +164,9 @@ export async function getGitHubRepositories(
   { baseUrl, fetcher, getSession }: GitHubApiOptions,
   query: GitHubRepositoryQuery = {},
 ): Promise<ApiSuccessEnvelope<GitHubRepositorySummary[]>> {
-  const client = createApiClient({ baseUrl, fetcher, getSession });
+  const currentSession = await getSession();
+  const providerToken = getGitHubProviderToken(currentSession);
+  const client = createApiClient({ baseUrl, fetcher, getSession: async () => currentSession });
   const searchParams = new URLSearchParams({
     page: String(query.page ?? 1),
     per_page: String(query.perPage ?? 12),
@@ -140,12 +180,14 @@ export async function getGitHubRepositories(
     searchParams.set("search", normalizedSearch);
   }
 
+  const headers = providerToken ? { "X-GitHub-Provider-Token": providerToken } : undefined;
   const response = await client.request(`/api/v1/github/repositories?${searchParams.toString()}`, {
     authenticated: true,
+    headers,
   });
 
   if (!response.ok) {
-    throw new GitHubRepositoryDiscoveryError(getRepositoryErrorCode(response.status));
+    throw new GitHubRepositoryDiscoveryError(await parseFailure(response));
   }
 
   return parseSuccess<GitHubRepositorySummary[]>(response);

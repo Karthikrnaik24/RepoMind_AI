@@ -26,8 +26,8 @@ class GitHubProviderNotLinked(GitHubUnauthorized):
 class GitHubTokenUnavailable(GitHubUnauthorized):
     """Raised when a linked GitHub identity has no available provider token."""
 
-    code = "github_token_unavailable"
-    message = "GitHub provider token is unavailable."
+    code = "github_reconnect_required"
+    message = "Reconnect GitHub to refresh repository access."
 
 
 class GitHubRateLimited(ExternalServiceException):

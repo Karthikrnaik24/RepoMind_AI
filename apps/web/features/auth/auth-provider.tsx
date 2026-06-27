@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import type { ReactNode } from "react";
@@ -66,11 +66,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setLoading(true);
       const supabase = getSupabaseClient();
       const { data } = await supabase.auth.getSession();
-      setSession(data.session ?? null);
-      setUser(data.session?.user ?? null);
+      const nextSession = data.session ?? null;
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      return nextSession;
     } catch {
       setSession(null);
       setUser(null);
+      return null;
     } finally {
       setLoading(false);
     }
@@ -197,3 +200,4 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
+

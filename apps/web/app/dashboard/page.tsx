@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -39,7 +39,8 @@ const repositoryDiscoveryErrorMessages = {
   fetch_failed: "Repository fetch failed. Please try again.",
   github_unavailable: "GitHub is unavailable right now. Please retry in a moment.",
   rate_limited: "GitHub rate limit exceeded. Please wait before trying again.",
-  token_expired: "Your GitHub session needs to be refreshed. Please sign in again if retry fails.",
+  reconnect_required: "Reconnect GitHub to refresh repository access.",
+  token_expired: "Your session needs to be refreshed. Please sign in again if retry fails.",
 };
 
 const repositoryRegistrationErrorMessage =
@@ -257,6 +258,8 @@ function RepositoryCard({
 
 type RepositoryBrowserProps = {
   isGitHubConnected: boolean;
+  onReconnectGitHub: () => void;
+  refreshSession: () => Promise<Session | null>;
   session: Session | null;
 };
 
@@ -268,7 +271,12 @@ function getRepositoryErrorMessage(error: unknown) {
   return repositoryDiscoveryErrorMessages.fetch_failed;
 }
 
-function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProps) {
+function RepositoryBrowser({
+  isGitHubConnected,
+  onReconnectGitHub,
+  refreshSession,
+  session,
+}: RepositoryBrowserProps) {
   const [repositories, setRepositories] = useState<GitHubRepositorySummary[]>([]);
   const [registeredRepositories, setRegisteredRepositories] = useState<RegisteredRepository[]>([]);
   const [search, setSearch] = useState("");
@@ -276,6 +284,9 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<GitHubRepositoryDiscoveryError["code"] | null>(
+    null,
+  );
   const [registrationError, setRegistrationError] = useState<string | null>(null);
   const [registeringIds, setRegisteringIds] = useState<Set<number>>(() => new Set());
   const [retryAttempt, setRetryAttempt] = useState(0);
@@ -292,6 +303,7 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
       setRepositories([]);
       setRegisteredRepositories([]);
       setError(null);
+      setErrorCode(null);
       return;
     }
 
@@ -299,13 +311,16 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
     async function loadRepositories(currentSession: Session) {
       setLoading(true);
       setError(null);
+      setErrorCode(null);
       try {
+        const refreshedSession = await refreshSession();
+        const effectiveSession = refreshedSession ?? currentSession;
         const [repositoryResult, registeredResult] = await Promise.all([
           getGitHubRepositories(
-            { getSession: async () => currentSession },
+            { getSession: async () => effectiveSession },
             { page, perPage: 12, search, visibility },
           ),
-          getRegisteredRepositories({ getSession: async () => currentSession }),
+          getRegisteredRepositories({ getSession: async () => effectiveSession }),
         ]);
         if (isMounted) {
           setRepositories(repositoryResult.data);
@@ -315,6 +330,11 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
         if (isMounted) {
           setRepositories([]);
           setError(getRepositoryErrorMessage(caughtError));
+          setErrorCode(
+            caughtError instanceof GitHubRepositoryDiscoveryError
+              ? caughtError.code
+              : "fetch_failed",
+          );
         }
       } finally {
         if (isMounted) {
@@ -328,7 +348,7 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
     return () => {
       isMounted = false;
     };
-  }, [isGitHubConnected, page, retryAttempt, search, session, visibility]);
+  }, [isGitHubConnected, page, refreshSession, retryAttempt, search, session, visibility]);
 
   const emptyState = useMemo(() => {
     if (!isGitHubConnected) {
@@ -448,14 +468,25 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
               <CircleAlert aria-hidden="true" className="h-4 w-4 shrink-0" />
               {error}
             </span>
-            <button
-              type="button"
-              onClick={() => setRetryAttempt((currentAttempt) => currentAttempt + 1)}
-              className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-md border border-destructive/40 bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-destructive/30"
-            >
-              <RefreshCw aria-hidden="true" className="h-4 w-4" />
-              Retry
-            </button>
+            {errorCode === "reconnect_required" ? (
+              <button
+                type="button"
+                onClick={onReconnectGitHub}
+                className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-md border border-destructive/40 bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-destructive/30"
+              >
+                <Github aria-hidden="true" className="h-4 w-4" />
+                Reconnect GitHub
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setRetryAttempt((currentAttempt) => currentAttempt + 1)}
+                className="inline-flex h-9 w-fit items-center justify-center gap-2 rounded-md border border-destructive/40 bg-background px-3 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-destructive/30"
+              >
+                <RefreshCw aria-hidden="true" className="h-4 w-4" />
+                Retry
+              </button>
+            )}
           </div>
         ) : null}
 
@@ -612,7 +643,12 @@ function DashboardContent() {
           </div>
         </section>
 
-        <RepositoryBrowser isGitHubConnected={isGitHubConnected} session={session} />
+        <RepositoryBrowser
+          isGitHubConnected={isGitHubConnected}
+          onReconnectGitHub={() => void linkGitHubIdentity()}
+          refreshSession={refreshSession}
+          session={session}
+        />
       </section>
     </main>
   );
@@ -633,3 +669,4 @@ export default function DashboardPage() {
     </Suspense>
   );
 }
+

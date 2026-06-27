@@ -1,4 +1,4 @@
-﻿// @vitest-environment jsdom
+// @vitest-environment jsdom
 
 import React from "react";
 import "@testing-library/jest-dom/vitest";
@@ -38,6 +38,8 @@ vi.mock("../../api/github", () => {
 vi.mock("../../features/auth/auth-hooks", () => ({
   useAuth: () => useAuthMock(),
 }));
+
+import { GitHubRepositoryDiscoveryError } from "../../api/github";
 
 import DashboardPage from "./page";
 
@@ -87,13 +89,14 @@ const registeredRepository = {
 };
 
 function mockAuthenticatedDashboard(identities = [{ provider: "google" }, { provider: "github" }]) {
-  const refreshSession = vi.fn();
+  const session = { access_token: "sample", provider_token: "github-provider-token" };
+  const refreshSession = vi.fn(async () => session);
   useAuthMock.mockReturnValue({
     authError: null,
     linkGitHubIdentity: vi.fn(),
     loading: false,
     refreshSession,
-    session: { access_token: "sample" },
+    session,
     signOut: vi.fn(),
     user: {
       app_metadata: { provider: "google" },
@@ -144,7 +147,7 @@ describe("DashboardPage", () => {
     expect(screen.getByText("Authentication Status")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Connect GitHub/i })).toBeInTheDocument();
     expect(screen.getAllByText("Not Connected").length).toBeGreaterThanOrEqual(1);
-    await waitFor(() => expect(refreshSession).toHaveBeenCalledOnce());
+    await waitFor(() => expect(refreshSession).toHaveBeenCalled());
   });
 
   it("starts GitHub identity linking from the dashboard", () => {
@@ -153,8 +156,8 @@ describe("DashboardPage", () => {
       authError: null,
       linkGitHubIdentity,
       loading: false,
-      refreshSession: vi.fn(),
-      session: { access_token: "sample" },
+      refreshSession: vi.fn(async () => ({ access_token: "sample", provider_token: "github-provider-token" })),
+      session: { access_token: "sample", provider_token: "github-provider-token" },
       signOut: vi.fn(),
       user: {
         app_metadata: { provider: "google" },
@@ -303,6 +306,36 @@ describe("DashboardPage", () => {
     await waitFor(() => expect(screen.getByText("RepoMind_AI")).toBeInTheDocument());
   });
 
+  it("guides users to reconnect GitHub when the provider token is unavailable", async () => {
+    const linkGitHubIdentity = vi.fn();
+    getGitHubRepositoriesMock.mockRejectedValue(
+      new GitHubRepositoryDiscoveryError("reconnect_required"),
+    );
+    useAuthMock.mockReturnValue({
+      authError: null,
+      linkGitHubIdentity,
+      loading: false,
+      refreshSession: vi.fn(async () => ({ access_token: "sample" })),
+      session: { access_token: "sample" },
+      signOut: vi.fn(),
+      user: {
+        app_metadata: { provider: "google" },
+        email: "engineer@example.com",
+        identities: [{ provider: "google" }, { provider: "github" }],
+        user_metadata: { full_name: "Ada Engineer" },
+      },
+    });
+
+    render(<DashboardPage />);
+
+    await waitFor(() =>
+      expect(screen.getByText("Reconnect GitHub to refresh repository access.")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Reconnect GitHub/i }));
+
+    expect(linkGitHubIdentity).toHaveBeenCalledOnce();
+  });
+
   it("shows friendly GitHub linking errors", () => {
     useSearchParamsMock.mockReturnValue(new URLSearchParams("github_link_error=oauth_cancelled"));
     mockAuthenticatedDashboard([{ provider: "google" }]);
@@ -312,3 +345,5 @@ describe("DashboardPage", () => {
     expect(screen.getByText("GitHub connection was cancelled. You can try again whenever you are ready.")).toBeInTheDocument();
   });
 });
+
+

@@ -1,4 +1,4 @@
-﻿# GitHub Architecture
+# GitHub Architecture
 
 RepoMind AI treats GitHub as an external integration behind explicit domain,
 application, and infrastructure boundaries. Sprint 3.9A creates the foundation
@@ -84,6 +84,18 @@ The backend authenticates requests with the Supabase JWT. Supabase sessions can
 expose provider tokens to trusted client/server callback code, but provider
 access tokens are not normally embedded in the JWT sent to the backend.
 
+For repository discovery, the frontend refreshes the active Supabase session
+before the GitHub repository request. If Supabase returns a GitHub
+`provider_token`, the frontend sends it to the backend in the private
+`X-GitHub-Provider-Token` request header. The backend accepts that token only
+after the authenticated Supabase JWT proves that the current user has a linked
+GitHub identity. The token is used immediately by `GitHubClient` and is never
+returned in API responses, stored in the database, or logged.
+
+If the user has a linked GitHub identity but Supabase does not provide a usable
+provider token, the backend returns `github_reconnect_required`. The frontend
+shows reconnect guidance and starts the existing Supabase identity-linking flow.
+
 Before deeper repository operations are enabled, RepoMind AI should finalize a
 secure provider token strategy. Acceptable options include encrypted server-side
 token storage, a short-lived backend token handoff during OAuth callback, or an
@@ -136,12 +148,13 @@ sequenceDiagram
     participant Client as GitHubClient
     participant GitHub as GitHub REST API
 
-    UI->>API: GET repositories with page/search/filter
+    UI->>UI: Refresh Supabase session
+    UI->>API: GET repositories with page/search/filter and optional provider token header
     API->>Auth: Validate Supabase JWT
     Auth-->>API: AuthenticatedUser
-    API->>Service: list_repositories(user, query)
-    Service->>TokenProvider: Resolve linked GitHub token
-    TokenProvider-->>Service: Infrastructure-only token
+    API->>Service: list_repositories(user, query, provider_token)
+    Service->>TokenProvider: Verify linked GitHub identity and resolve token
+    TokenProvider-->>Service: Infrastructure-only token or reconnect required
     Service->>Client: GET /user/repos or /search/repositories
     Client->>GitHub: Authenticated request
     GitHub-->>Client: Repository JSON page
@@ -163,7 +176,7 @@ Repository discovery supports these query parameters:
 - `sort`: `created`, `updated`, `pushed`, or `full_name`.
 - `direction`: `asc` or `desc`.
 - `visibility`: `all`, `public`, or `private`.
-- `search`: backend name filter applied after the GitHub page is fetched.
+- `search`: repository name search executed through GitHub Search API.
 
 The backend forwards pagination, sort, direction, and visibility to GitHub.
 When `search` is provided, the backend uses GitHub Search API with `in:name`,
@@ -215,3 +228,4 @@ sequenceDiagram
 
 Repository listing, registration, cloning, indexing, and AI workflows must be
 implemented in later sprints using this foundation.
+
