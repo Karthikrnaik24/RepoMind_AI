@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React from "react";
+import Link from "next/link";
 import { Bot, Braces, CheckCircle2, FileText, GitBranch, Github, LockKeyhole, SearchCode } from "lucide-react";
 
 import { useAuth } from "../features/auth/auth-hooks";
@@ -29,9 +30,70 @@ const repositoryRows = [
   { name: "repomind-ai/docs", language: "Markdown", status: "Documented" },
 ];
 
-export default function HomePage() {
-  const { signInWithGitHub, signInWithGoogle } = useAuth();
+function HeroActions() {
+  const { loading, session, signInWithGitHub, signInWithGoogle } = useAuth();
+  const isAuthenticated = Boolean(session);
 
+  if (loading) {
+    return (
+      <div className="mt-8 flex flex-col gap-3 sm:flex-row" aria-label="Loading authentication state">
+        <div className="h-11 w-44 animate-pulse rounded-md bg-muted" />
+        <div className="h-11 w-36 animate-pulse rounded-md bg-muted" />
+      </div>
+    );
+  }
+
+  if (isAuthenticated) {
+    return (
+      <div className="mt-8">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <Link
+            href="/dashboard"
+            className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30"
+          >
+            Go to Dashboard
+          </Link>
+          <Link
+            href="/repositories"
+            className="inline-flex h-11 items-center justify-center rounded-md border border-border bg-background px-5 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-primary/20"
+          >
+            Repositories
+          </Link>
+        </div>
+        <p className="mt-4 text-sm text-muted-foreground">
+          You are signed in. Continue from your dashboard or manage registered repositories.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-8">
+      <div className="flex flex-col gap-3 sm:flex-row">
+        <button
+          type="button"
+          onClick={() => void signInWithGoogle()}
+          className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30"
+        >
+          Continue with Google
+        </button>
+        <button
+          type="button"
+          onClick={() => void signInWithGitHub()}
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border bg-background px-5 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-primary/20"
+        >
+          <Github aria-hidden="true" className="h-4 w-4" />
+          Continue with GitHub
+        </button>
+      </div>
+      <p className="mt-4 text-sm text-muted-foreground">
+        New and existing accounts are supported. Linked providers remain attached to one user.
+      </p>
+    </div>
+  );
+}
+
+export default function HomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="border-b border-border">
@@ -48,26 +110,7 @@ export default function HomePage() {
               RepoMind AI gives engineering teams a secure foundation for connecting GitHub,
               managing repositories, and preparing codebases for source-aware assistance.
             </p>
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => void signInWithGoogle()}
-                className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30"
-              >
-                Continue with Google
-              </button>
-              <button
-                type="button"
-                onClick={() => void signInWithGitHub()}
-                className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border bg-background px-5 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-primary/20"
-              >
-                <Github aria-hidden="true" className="h-4 w-4" />
-                Continue with GitHub
-              </button>
-            </div>
-            <p className="mt-4 text-sm text-muted-foreground">
-              New and existing accounts are supported. Linked providers remain attached to one user.
-            </p>
+            <HeroActions />
           </div>
 
           <div className="rounded-lg border border-border bg-card shadow-sm">
@@ -148,4 +191,3 @@ export default function HomePage() {
     </main>
   );
 }
-

@@ -1060,3 +1060,13 @@ The dashboard should feel like an account and repository workspace, not a debug 
 - Buttons, filters, retry actions, and provider controls require visible focus states and clear ARIA labels or accessible names.
 - Repository management actions remain disabled or clearly scoped until the backend supports deeper workflows.
 
+
+### Authenticated Home Routing
+
+When a user is authenticated, the RepoMind AI logo links to `/dashboard` instead of the public landing page. This keeps the primary brand navigation aligned with the user's active workspace and prevents the home route from presenting sign-in or sign-up actions to an already signed-in user.
+
+The landing page itself is also auth-aware:
+
+- Signed-out users see Continue with Google and Continue with GitHub.
+- Signed-in users see Go to Dashboard and Repositories.
+- While auth state is loading, login CTAs are hidden to avoid a signed-out flash.

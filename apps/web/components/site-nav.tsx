@@ -22,7 +22,7 @@ export function SiteNav() {
       <nav className="mx-auto flex min-h-16 w-full max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-5">
-            <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Link aria-label="RepoMind AI" href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center gap-2 text-sm font-semibold text-foreground">
               <span className="flex h-8 w-8 items-center justify-center rounded-md border border-border bg-foreground text-xs font-bold text-background">
                 RM
               </span>
@@ -114,3 +114,5 @@ export function SiteNav() {
     </header>
   );
 }
+
+
