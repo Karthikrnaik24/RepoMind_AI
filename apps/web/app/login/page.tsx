@@ -3,19 +3,26 @@
 import React from "react";
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import { Github } from "lucide-react";
 
 import { useAuth } from "../../features/auth/auth-hooks";
 
 function LoginContent() {
-  const { signInWithGoogle } = useAuth();
+  const { signInWithGitHub, signInWithGoogle } = useAuth();
   const searchParams = useSearchParams();
   const hasAuthError = searchParams.get("error") === "authentication_failed";
 
   return (
-    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-6 text-foreground">
+    <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-background px-6 py-10 text-foreground">
       <section className="w-full max-w-md rounded-lg border border-border bg-card p-8 shadow-sm">
         <p className="text-sm font-medium uppercase text-muted-foreground">RepoMind AI</p>
-        <h1 className="mt-3 text-3xl font-semibold">Sign in to understand your repositories</h1>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight">
+          Sign in to understand your repositories
+        </h1>
+        <p className="mt-3 text-sm leading-6 text-muted-foreground">
+          Use Google or GitHub to create an account or return to an existing one. When both
+          identities belong to you, RepoMind AI keeps them connected to one account.
+        </p>
         {hasAuthError ? (
           <p className="mt-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             Authentication failed. Please try signing in again.
@@ -25,20 +32,21 @@ function LoginContent() {
           <button
             type="button"
             onClick={() => void signInWithGoogle()}
-            className="h-11 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30"
           >
             Continue with Google
           </button>
           <button
             type="button"
-            disabled
-            className="h-11 rounded-md border border-border bg-secondary px-4 text-sm font-medium text-muted-foreground opacity-70"
+            onClick={() => void signInWithGitHub()}
+            className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-primary/20"
           >
+            <Github aria-hidden="true" className="h-4 w-4" />
             Continue with GitHub
           </button>
         </div>
         <p className="mt-5 text-sm leading-6 text-muted-foreground">
-          GitHub OAuth will be enabled in a later sprint.
+          You can link the second provider from your dashboard after signing in.
         </p>
       </section>
     </main>

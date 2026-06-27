@@ -6,6 +6,7 @@ export type AuthContextValue = {
   loading: boolean;
   authError: string | null;
   signInWithGoogle: () => Promise<void>;
+  signInWithGitHub: () => Promise<void>;
   linkGitHubIdentity: () => Promise<void>;
   signOut: () => Promise<void>;
   refreshSession: () => Promise<void>;

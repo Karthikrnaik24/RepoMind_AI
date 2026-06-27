@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { Suspense, useEffect, useMemo, useState } from "react";
@@ -30,9 +30,9 @@ import { RequireAuth } from "../../features/auth/require-auth";
 
 const githubLinkErrorMessages: Record<string, string> = {
   identity_already_linked: "This GitHub account is already linked.",
-  oauth_cancelled: "GitHub linking was cancelled.",
-  oauth_failed: "GitHub linking failed. Please try again.",
-  provider_unavailable: "GitHub linking is unavailable right now.",
+  oauth_cancelled: "GitHub connection was cancelled. You can try again whenever you are ready.",
+  oauth_failed: "GitHub connection failed. Please try again from the dashboard.",
+  provider_unavailable: "GitHub is unavailable right now. Please try again later.",
 };
 
 const repositoryDiscoveryErrorMessages = {
@@ -110,34 +110,33 @@ function formatUpdatedAt(value: string | null) {
 
 type ProviderStatusProps = {
   connected: boolean;
+  description: string;
   label: string;
 };
 
-function ProviderStatus({ connected, label }: ProviderStatusProps) {
+function ProviderStatus({ connected, description, label }: ProviderStatusProps) {
   return (
-    <div className="flex items-center justify-between rounded-md border border-border bg-background px-4 py-3">
-      <div className="flex items-center gap-3">
-        <span className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-secondary text-foreground">
+    <article className="flex items-center justify-between gap-4 rounded-lg border border-border bg-background px-4 py-4 shadow-sm">
+      <div className="flex min-w-0 items-center gap-3">
+        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-secondary text-sm font-semibold text-foreground">
           {label === "GitHub" ? <Github aria-hidden="true" className="h-4 w-4" /> : label.charAt(0)}
         </span>
-        <div>
-          <p className="text-sm font-medium text-foreground">{label}</p>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {connected ? "Connected" : "Not Connected"}
-          </p>
+        <div className="min-w-0">
+          <h3 className="text-sm font-semibold text-foreground">{label}</h3>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{description}</p>
         </div>
       </div>
       {connected ? (
-        <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-1 text-xs font-medium text-primary">
           <BadgeCheck aria-hidden="true" className="h-3.5 w-3.5" />
           Connected
         </span>
       ) : (
-        <span className="rounded-full border border-border bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground">
+        <span className="shrink-0 rounded-full border border-border bg-secondary px-2 py-1 text-xs font-medium text-muted-foreground">
           Not Connected
         </span>
       )}
-    </div>
+    </article>
   );
 }
 
@@ -249,7 +248,7 @@ function RepositoryCard({
           onClick={() => onRegister(repository)}
           className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isRegistered ? "Registered ?" : isRegistering ? "Registering..." : "Register Repository"}
+          {isRegistered ? "Registered" : isRegistering ? "Registering..." : "Register Repository"}
         </button>
       </div>
     </article>
@@ -342,7 +341,7 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
     if (hasActiveFilter) {
       return {
         title: "Search returned no matches",
-        message: "No repositories on the current page match this search or visibility filter.",
+        message: "GitHub Search did not return repositories for this name and visibility filter.",
       };
     }
 
@@ -418,7 +417,7 @@ function RepositoryBrowser({ isGitHubConnected, session }: RepositoryBrowserProp
                 />
               </label>
               <p id="repository-search-help" className="mt-2 text-xs text-muted-foreground">
-                Searching repositories on the current page.
+                Searching across repositories with GitHub Search.
               </p>
             </div>
             <label htmlFor="repository-visibility">
@@ -599,8 +598,16 @@ function DashboardContent() {
             ) : null}
 
             <div className="mt-5 grid gap-3">
-              <ProviderStatus connected={isGoogleConnected} label="Google" />
-              <ProviderStatus connected={isGitHubConnected} label="GitHub" />
+              <ProviderStatus
+                connected={isGoogleConnected}
+                description="Primary application sign-in and account recovery."
+                label="Google"
+              />
+              <ProviderStatus
+                connected={isGitHubConnected}
+                description="Repository discovery and future source access."
+                label="GitHub"
+              />
             </div>
           </div>
         </section>

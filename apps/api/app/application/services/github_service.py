@@ -37,6 +37,17 @@ class GitHubService:
     ) -> list[RepositorySummary]:
         """Fetch one page of GitHub repositories and map them into safe DTOs."""
 
+        if search and search.strip():
+            return self.search_repositories(
+                authenticated_user,
+                page=page,
+                per_page=per_page,
+                sort=sort,
+                direction=direction,
+                visibility=visibility,
+                search=search,
+            )
+
         token = self._token_provider.get_access_token(authenticated_user)
         payload = self._client.request_json(
             "GET",
@@ -53,19 +64,43 @@ class GitHubService:
         if not isinstance(payload, list):
             raise GitHubUnavailable("GitHub returned an unexpected repository payload.")
 
-        repositories = [
+        return [self.to_repository_summary(item) for item in payload if isinstance(item, dict)]
+
+    def search_repositories(
+        self,
+        authenticated_user: AuthenticatedUser,
+        *,
+        page: int,
+        per_page: int,
+        sort: GitHubRepositorySort,
+        direction: GitHubRepositoryDirection,
+        visibility: GitHubRepositoryVisibility,
+        search: str,
+    ) -> list[RepositorySummary]:
+        """Search repositories through GitHub Search API instead of local page filtering."""
+
+        token = self._token_provider.get_access_token(authenticated_user)
+        query = self._build_search_query(search, visibility)
+        payload = self._client.request_json(
+            "GET",
+            "/search/repositories",
+            token=token,
+            params={
+                "q": query,
+                "page": page,
+                "per_page": per_page,
+                "sort": sort if sort != "full_name" else "updated",
+                "order": direction,
+            },
+        )
+        if not isinstance(payload, dict) or not isinstance(payload.get("items"), list):
+            raise GitHubUnavailable("GitHub returned an unexpected repository search payload.")
+
+        return [
             self.to_repository_summary(item)
-            for item in payload
+            for item in payload["items"]
             if isinstance(item, dict)
         ]
-        if search:
-            normalized_search = search.strip().lower()
-            repositories = [
-                repository
-                for repository in repositories
-                if normalized_search in repository.name.lower()
-            ]
-        return repositories
 
     def get_repository_by_full_name(
         self,
@@ -91,3 +126,13 @@ class GitHubService:
         """Map a GitHub repository payload into a RepoMind AI DTO."""
 
         return RepositorySummary.from_github_api(payload)
+
+    @staticmethod
+    def _build_search_query(search: str, visibility: GitHubRepositoryVisibility) -> str:
+        normalized = search.strip()
+        visibility_qualifier = ""
+        if visibility == "public":
+            visibility_qualifier = " is:public"
+        elif visibility == "private":
+            visibility_qualifier = " is:private"
+        return f"{normalized} in:name fork:true{visibility_qualifier}"

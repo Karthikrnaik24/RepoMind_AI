@@ -1,4 +1,4 @@
-# RepoMind AI UI/UX Specification
+﻿# RepoMind AI UI/UX Specification
 
 ## Purpose
 
@@ -354,7 +354,7 @@ The Dashboard includes a read-only repository discovery panel after GitHub accou
 
 Discovery controls:
 
-- Search input with helper text: "Searching repositories on the current page."
+- Search input with helper text: "Searching across repositories with GitHub Search."
 - Visibility filter with All, Public, and Private options.
 - Pagination controls with clear disabled states.
 - Search and filter controls must remain in the same area so the implementation can later switch from page-limited backend filtering to GitHub Search API without redesigning the page.
@@ -1018,3 +1018,45 @@ Alignment rules:
 - Indexing UI must poll `indexing_jobs` through the index status endpoint.
 - File Explorer must use `repository_files` and `code_chunks` through the file, search, and explain endpoints.
 - Blaming users for provider, indexing, or permission problems.
+
+## Sprint 3.13 P1 UX Polish
+
+### Landing Page
+
+The landing page uses a GitHub-inspired developer product structure without copying GitHub branding or text:
+
+- Sticky top navigation with logo, Features, Docs, Pricing Coming Soon, search, theme toggle, Sign In, and Sign Up.
+- Large hero with one primary visual direction, concise product copy, and Google/GitHub OAuth entry points.
+- Repository preview panel that demonstrates managed repository metadata without implying indexing or AI chat is live.
+- Feature, documentation, and pricing-coming-soon sections aligned to navbar anchors.
+- Responsive layout that moves from two-column desktop to single-column mobile without hiding auth actions.
+
+### Authentication UX
+
+Authentication screens should make provider behavior clear:
+
+- Google and GitHub can both create a new account or return an existing user.
+- Signed-in users can link GitHub from the dashboard so both identities remain attached to one RepoMind AI account.
+- OAuth cancellation, already-linked identities, failed callbacks, and provider unavailability use friendly, non-technical messages.
+- Login and dashboard surfaces must not expose provider tokens, session internals, or temporary debug diagnostics.
+
+### Repository Discovery
+
+Repository discovery now uses GitHub Search API when the user enters a search term:
+
+- Search copy should say that results are searched across accessible repositories through GitHub Search.
+- Pagination remains visible and works with both browse and search flows.
+- Empty states distinguish disconnected GitHub, no repositories, and no search matches.
+- Error states distinguish GitHub unavailable, rate limited, token/session problems, and generic fetch failures, with a retry action.
+- Repository cards show owner avatar, owner name, visibility, language, default branch, last updated date, description fallback, and registration status.
+
+### Dashboard Polish
+
+The dashboard should feel like an account and repository workspace, not a debug panel:
+
+- Provider cards show Google and GitHub connection state with badges and short descriptions.
+- Temporary debug cards and token-availability diagnostics are not part of production UI.
+- Loading skeletons should match repository card structure to reduce layout shift.
+- Buttons, filters, retry actions, and provider controls require visible focus states and clear ARIA labels or accessible names.
+- Repository management actions remain disabled or clearly scoped until the backend supports deeper workflows.
+

@@ -34,7 +34,7 @@ function LoadingProbe() {
 }
 
 function AuthActionsProbe() {
-  const { linkGitHubIdentity, signInWithGoogle, signOut, user } = useAuth();
+  const { linkGitHubIdentity, signInWithGitHub, signInWithGoogle, signOut, user } = useAuth();
 
   return (
     <div>
@@ -42,8 +42,11 @@ function AuthActionsProbe() {
       <button type="button" onClick={() => void signInWithGoogle()}>
         Google
       </button>
+      <button type="button" onClick={() => void signInWithGitHub()}>
+        GitHub sign in
+      </button>
       <button type="button" onClick={() => void linkGitHubIdentity()}>
-        GitHub
+        GitHub link
       </button>
       <button type="button" onClick={() => void signOut()}>
         Sign out
@@ -116,6 +119,25 @@ describe("AuthProvider", () => {
     });
   });
 
+  it("starts GitHub OAuth sign-in with the callback redirect", async () => {
+    const supabase = createSupabaseMock();
+    createBrowserSupabaseClientMock.mockReturnValue(supabase);
+
+    render(
+      <AuthProvider>
+        <AuthActionsProbe />
+      </AuthProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "GitHub sign in" }));
+
+    await waitFor(() => expect(supabase.auth.signInWithOAuth).toHaveBeenCalledOnce());
+    expect(supabase.auth.signInWithOAuth).toHaveBeenCalledWith({
+      provider: "github",
+      options: { redirectTo: "http://localhost:3000/auth/callback" },
+    });
+  });
+
   it("starts GitHub identity linking with the callback redirect", async () => {
     const supabase = createSupabaseMock({
       access_token: "sample-access-token",
@@ -129,7 +151,7 @@ describe("AuthProvider", () => {
       </AuthProvider>,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "GitHub" }));
+    fireEvent.click(screen.getByRole("button", { name: "GitHub link" }));
 
     await waitFor(() => expect(supabase.auth.linkIdentity).toHaveBeenCalledOnce());
     expect(supabase.auth.linkIdentity).toHaveBeenCalledWith({
@@ -188,3 +210,4 @@ describe("AuthProvider", () => {
     expect(replaceMock).toHaveBeenCalledWith("/");
   });
 });
+

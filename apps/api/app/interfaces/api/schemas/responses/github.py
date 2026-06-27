@@ -1,19 +1,10 @@
 """GitHub response DTOs."""
 
 from datetime import datetime
-from typing import Literal
 
 from pydantic import BaseModel
 
 from app.domain.github import RepositorySummary
-
-
-class GitHubTokenDebugResponse(BaseModel):
-    """Safe GitHub token availability debug payload."""
-
-    github_linked: bool
-    token_available: bool
-    provider: Literal["github"] = "github"
 
 
 class GitHubRepositoryOwnerResponse(BaseModel):

@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+﻿// @vitest-environment jsdom
 
 import React from "react";
 import "@testing-library/jest-dom/vitest";
@@ -183,7 +183,7 @@ describe("DashboardPage", () => {
     expect(screen.getByAltText("Karthikrnaik24 avatar")).toBeInTheDocument();
     expect(screen.getByText("private")).toBeInTheDocument();
     expect(screen.getByText("main")).toBeInTheDocument();
-    expect(screen.getByText("Searching repositories on the current page.")).toBeInTheDocument();
+    expect(screen.getByText("Searching across repositories with GitHub Search.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Register Repository" })).toBeInTheDocument();
     expect(getGitHubRepositoriesMock).toHaveBeenCalledWith(
       expect.objectContaining({ getSession: expect.any(Function) }),
@@ -284,7 +284,7 @@ describe("DashboardPage", () => {
 
     await waitFor(() => expect(screen.getByText("Search returned no matches")).toBeInTheDocument());
     expect(
-      screen.getByText("No repositories on the current page match this search or visibility filter."),
+      screen.getByText("GitHub Search did not return repositories for this name and visibility filter."),
     ).toBeInTheDocument();
   });
 
@@ -309,6 +309,6 @@ describe("DashboardPage", () => {
 
     render(<DashboardPage />);
 
-    expect(screen.getByText("GitHub linking was cancelled.")).toBeInTheDocument();
+    expect(screen.getByText("GitHub connection was cancelled. You can try again whenever you are ready.")).toBeInTheDocument();
   });
 });

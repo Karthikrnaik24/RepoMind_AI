@@ -1,87 +1,103 @@
-﻿import Link from "next/link";
-import { Bot, Braces, GitBranch, LockKeyhole, SearchCode } from "lucide-react";
+﻿"use client";
+
+import React from "react";
+import { Bot, Braces, CheckCircle2, FileText, GitBranch, Github, LockKeyhole, SearchCode } from "lucide-react";
+
+import { useAuth } from "../features/auth/auth-hooks";
 
 const featureCards = [
   {
     icon: SearchCode,
-    title: "Ask across a codebase",
-    description: "Find context, related files, and implementation paths without losing the thread.",
+    title: "Repository discovery",
+    description: "Connect GitHub and browse repositories through clean DTOs without exposing raw provider data.",
   },
   {
     icon: GitBranch,
-    title: "Understand structure",
-    description: "Map branches, files, chunks, dependencies, and citations into one navigable model.",
+    title: "Managed repositories",
+    description: "Register repositories as platform resources before future indexing, embeddings, and chat workflows.",
   },
   {
     icon: LockKeyhole,
-    title: "Built for teams",
-    description: "Clean boundaries, audit-ready architecture, and secure identity foundations from day one.",
+    title: "Secure identity foundation",
+    description: "Supabase OAuth, JWT validation, local user sync, and RBAC boundaries are built into the base.",
   },
 ];
 
 const repositoryRows = [
-  { name: "api/indexing-pipeline", language: "Python", status: "Ready for Sprint 4" },
-  { name: "web/auth-experience", language: "TypeScript", status: "Google OAuth enabled" },
-  { name: "docs/architecture", language: "Markdown", status: "Production blueprint" },
+  { name: "repomind-ai/api", language: "Python", status: "Registered" },
+  { name: "repomind-ai/web", language: "TypeScript", status: "Ready" },
+  { name: "repomind-ai/docs", language: "Markdown", status: "Documented" },
 ];
 
 export default function HomePage() {
+  const { signInWithGitHub, signInWithGoogle } = useAuth();
+
   return (
     <main className="min-h-screen bg-background text-foreground">
       <section className="border-b border-border">
-        <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-[1.05fr_0.95fr] lg:px-8 lg:py-20">
+        <div className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-16 sm:px-6 lg:min-h-[calc(100vh-4rem)] lg:grid-cols-[1.02fr_0.98fr] lg:px-8 lg:py-20">
           <div>
             <div className="inline-flex items-center gap-2 rounded-full border border-border bg-secondary px-3 py-1 text-sm font-medium text-muted-foreground">
               <Bot aria-hidden="true" className="h-4 w-4 text-primary" />
               AI Software Engineer for GitHub Repositories
             </div>
-            <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-tight sm:text-6xl lg:text-7xl">
-              RepoMind AI helps engineering teams understand code faster.
+            <h1 className="mt-6 max-w-4xl text-5xl font-semibold leading-tight tracking-tight sm:text-6xl lg:text-7xl">
+              Understand every repository before you change it.
             </h1>
             <p className="mt-6 max-w-2xl text-lg leading-8 text-muted-foreground">
-              Connect repositories, index source context, and ask precise questions with citations when repository features arrive in upcoming sprints.
+              RepoMind AI gives engineering teams a secure foundation for connecting GitHub,
+              managing repositories, and preparing codebases for source-aware assistance.
             </p>
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
-                className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+              <button
+                type="button"
+                onClick={() => void signInWithGoogle()}
+                className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-5 text-sm font-medium text-primary-foreground outline-none transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-primary/30"
               >
-                Get started
-              </Link>
-              <Link
-                href="/dashboard"
-                className="inline-flex h-11 items-center justify-center rounded-md border border-border bg-background px-5 text-sm font-medium text-foreground transition-colors hover:bg-secondary"
+                Continue with Google
+              </button>
+              <button
+                type="button"
+                onClick={() => void signInWithGitHub()}
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-md border border-border bg-background px-5 text-sm font-medium text-foreground outline-none transition-colors hover:bg-secondary focus:ring-2 focus:ring-primary/20"
               >
-                View dashboard
-              </Link>
+                <Github aria-hidden="true" className="h-4 w-4" />
+                Continue with GitHub
+              </button>
             </div>
+            <p className="mt-4 text-sm text-muted-foreground">
+              New and existing accounts are supported. Linked providers remain attached to one user.
+            </p>
           </div>
 
           <div className="rounded-lg border border-border bg-card shadow-sm">
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-              <span className="h-3 w-3 rounded-full bg-destructive" />
-              <span className="h-3 w-3 rounded-full bg-amber-500" />
-              <span className="h-3 w-3 rounded-full bg-primary" />
-              <span className="ml-3 text-sm text-muted-foreground">repomind-ai/workspace</span>
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-destructive" />
+                <span className="h-3 w-3 rounded-full bg-amber-500" />
+                <span className="h-3 w-3 rounded-full bg-primary" />
+              </div>
+              <span className="text-xs font-medium text-muted-foreground">Repository preview</span>
             </div>
             <div className="space-y-4 p-5">
               <div className="rounded-md border border-border bg-secondary/55 p-4">
                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                   <Braces aria-hidden="true" className="h-4 w-4 text-accent" />
-                  Repository intelligence preview
+                  repomind-ai/platform
                 </div>
                 <p className="mt-3 text-sm leading-6 text-muted-foreground">
-                  Index commits, files, chunks, dependencies, and citations into a source-aware assistant designed for production teams.
+                  A managed repository card with identity, metadata, sync status, and future AI readiness.
                 </p>
               </div>
               <div className="divide-y divide-border rounded-md border border-border">
                 {repositoryRows.map((row) => (
-                  <div key={row.name} className="grid gap-2 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                  <div key={row.name} className="grid gap-3 p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                     <div>
                       <p className="text-sm font-medium text-foreground">{row.name}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{row.language}</p>
                     </div>
-                    <span className="rounded-full border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
+                    <span className="inline-flex w-fit items-center gap-1 rounded-full border border-border bg-background px-2 py-1 text-xs text-muted-foreground">
+                      <CheckCircle2 aria-hidden="true" className="h-3.5 w-3.5 text-primary" />
                       {row.status}
                     </span>
                   </div>
@@ -92,7 +108,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-4 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
+      <section id="features" className="mx-auto grid max-w-7xl gap-4 px-4 py-12 sm:px-6 md:grid-cols-3 lg:px-8">
         {featureCards.map((feature) => {
           const Icon = feature.icon;
 
@@ -105,6 +121,31 @@ export default function HomePage() {
           );
         })}
       </section>
+
+      <section id="docs" className="border-y border-border bg-secondary/35">
+        <div className="mx-auto grid max-w-7xl gap-6 px-4 py-12 sm:px-6 lg:grid-cols-[0.75fr_1fr] lg:px-8">
+          <div>
+            <FileText aria-hidden="true" className="h-5 w-5 text-primary" />
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight">Built from documentation outward.</h2>
+          </div>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Product vision, architecture, database design, API contracts, security, deployment, testing,
+            authentication, and GitHub integration docs stay aligned with implementation milestones.
+          </p>
+        </div>
+      </section>
+
+      <section id="pricing" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+        <div className="rounded-lg border border-border bg-card p-5 shadow-sm">
+          <p className="text-sm font-medium uppercase text-muted-foreground">Pricing</p>
+          <h2 className="mt-3 text-2xl font-semibold tracking-tight">Coming soon for teams and solo builders.</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
+            RepoMind AI is focused on a production-ready foundation first. Billing will arrive after
+            repository intelligence workflows are ready for real usage.
+          </p>
+        </div>
+      </section>
     </main>
   );
 }
+

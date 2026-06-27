@@ -12,7 +12,6 @@ from app.interfaces.api.schemas.responses.github import (
     GitHubRepositoryOwnerResponse,
     GitHubRepositoryPermissionsResponse,
     GitHubRepositorySummaryResponse,
-    GitHubTokenDebugResponse,
 )
 from app.interfaces.api.schemas.responses.health import HealthData, StatusData
 from app.interfaces.api.schemas.responses.identity import MeData, MeResponse
@@ -29,7 +28,6 @@ __all__ = [
     "GitHubRepositoryOwnerResponse",
     "GitHubRepositoryPermissionsResponse",
     "GitHubRepositorySummaryResponse",
-    "GitHubTokenDebugResponse",
     "HealthData",
     "MeData",
     "MeResponse",

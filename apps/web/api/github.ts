@@ -1,12 +1,6 @@
-import type { Session } from "@supabase/supabase-js";
+﻿import type { Session } from "@supabase/supabase-js";
 
 import { createApiClient } from "./client";
-
-export type GitHubTokenDebugStatus = {
-  github_linked: boolean;
-  token_available: boolean;
-  provider: "github";
-};
 
 export type GitHubRepositorySummary = {
   id: number;
@@ -126,22 +120,6 @@ function getRepositoryErrorCode(status: number): GitHubRepositoryDiscoveryErrorC
 
 async function parseSuccess<T>(response: Response): Promise<ApiSuccessEnvelope<T>> {
   return (await response.json()) as ApiSuccessEnvelope<T>;
-}
-
-export async function getGitHubTokenDebugStatus({
-  baseUrl,
-  fetcher,
-  getSession,
-}: GitHubApiOptions): Promise<GitHubTokenDebugStatus> {
-  const client = createApiClient({ baseUrl, fetcher, getSession });
-  const response = await client.request("/api/v1/github/debug-token", { authenticated: true });
-
-  if (!response.ok) {
-    throw new Error("GitHub token debug request failed.");
-  }
-
-  const payload = await parseSuccess<GitHubTokenDebugStatus>(response);
-  return payload.data;
 }
 
 export async function getGitHubRepositories(

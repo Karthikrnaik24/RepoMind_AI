@@ -11,7 +11,7 @@ SAMPLE_ACCESS_VALUE = "sample-github-access-value"
 
 
 class FakeGitHubClient:
-    def __init__(self, payload: list[dict[str, Any]] | None = None) -> None:
+    def __init__(self, payload: Any | None = None) -> None:
         self.payload = payload or []
         self.last_path: str | None = None
         self.last_params: dict[str, Any] | None = None
@@ -24,7 +24,7 @@ class FakeGitHubClient:
         *,
         token: str,
         params: dict[str, Any] | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> Any:
         self.last_path = f"{method} {path}"
         self.last_params = params
         self.last_access_value = token
@@ -143,13 +143,8 @@ def test_list_repositories_uses_pagination_and_filters(
     }
 
 
-def test_list_repositories_filters_by_search(authenticated_user: AuthenticatedUser) -> None:
-    client = FakeGitHubClient(
-        [
-            repository_payload(name="RepoMind_AI"),
-            repository_payload(name="Unrelated_Service"),
-        ]
-    )
+def test_search_repositories_uses_github_search_api(authenticated_user: AuthenticatedUser) -> None:
+    client = FakeGitHubClient({"items": [repository_payload(name="RepoMind_AI", private=False)]})
     service = GitHubService(client, FakeTokenProvider())  # type: ignore[arg-type]
 
     repositories = service.list_repositories(
@@ -158,8 +153,16 @@ def test_list_repositories_filters_by_search(authenticated_user: AuthenticatedUs
         per_page=10,
         sort="updated",
         direction="desc",
-        visibility="all",
+        visibility="public",
         search="repomind",
     )
 
     assert [repository.name for repository in repositories] == ["RepoMind_AI"]
+    assert client.last_path == "GET /search/repositories"
+    assert client.last_params == {
+        "q": "repomind in:name fork:true is:public",
+        "page": 1,
+        "per_page": 10,
+        "sort": "updated",
+        "order": "desc",
+    }

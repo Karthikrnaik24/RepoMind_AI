@@ -1,4 +1,4 @@
-# GitHub Architecture
+﻿# GitHub Architecture
 
 RepoMind AI treats GitHub as an external integration behind explicit domain,
 application, and infrastructure boundaries. Sprint 3.9A creates the foundation
@@ -57,54 +57,38 @@ Production token storage must be designed before repository features are built.
 Provider tokens must never be logged, returned to the frontend, or stored
 unencrypted.
 
+## Provider Token Boundary
 
-## Token Verification Debug Flow
-
-Sprint 3.9B adds a protected developer diagnostic endpoint:
-
-`GET /api/v1/github/debug-token`
-
-The endpoint returns only safe metadata:
-
-```json
-{
-  "github_linked": true,
-  "token_available": true,
-  "provider": "github"
-}
-```
-
-It must never return access tokens, refresh tokens, provider tokens, Supabase
-service keys, or any other secret.
+RepoMind AI keeps GitHub provider token handling behind the infrastructure
+boundary. Production routes must never return provider tokens, refresh tokens, or
+safe-looking debug wrappers that reveal token availability. Backend services may
+ask the `GitHubTokenProvider` for an infrastructure-only access token when a real
+GitHub use case requires it.
 
 ```mermaid
 flowchart TD
     SupabaseIdentity["Supabase Identity"] --> AuthDependency["CurrentUser Dependency"]
     AuthDependency --> AuthenticatedUser["AuthenticatedUser Metadata"]
     AuthenticatedUser --> TokenProvider["GitHubTokenProvider"]
-    TokenProvider --> SafeStatus["GitHubTokenStatus"]
-    SafeStatus --> DebugEndpoint["/api/v1/github/debug-token"]
-    TokenProvider -. "future infrastructure-only token use" .-> GitHubClient["GitHubClient"]
+    TokenProvider -. "infrastructure-only token" .-> GitHubClient["GitHubClient"]
+    GitHubClient --> GitHubAPI["GitHub REST API"]
 ```
 
-The dashboard shows this status only in developer mode. It displays whether the
-GitHub identity is linked, whether a provider token is available, and the
-provider name. It never displays token values.
+The frontend can show whether a GitHub identity is linked by reading Supabase
+user identities from the active session. It does not receive backend token
+availability diagnostics.
 
 ## Token Verification Limitations
 
-The backend currently authenticates requests with the Supabase JWT. Supabase
-sessions can expose provider tokens to trusted client/server callback code, but
-provider access tokens are not normally embedded in the JWT sent to the backend.
-That means the debug endpoint can safely report `github_linked=true` while also
-reporting `token_available=false` until a production token handoff/storage design
-is implemented.
+The backend authenticates requests with the Supabase JWT. Supabase sessions can
+expose provider tokens to trusted client/server callback code, but provider
+access tokens are not normally embedded in the JWT sent to the backend.
 
-Before repository features are enabled, RepoMind AI must choose a secure provider
-token strategy. Acceptable options include encrypted server-side token storage,
-a short-lived backend token handoff during OAuth callback, or an official
-Supabase-supported server flow. Tokens must remain infrastructure-only and must
-not be serialized through application DTOs or frontend responses.
+Before deeper repository operations are enabled, RepoMind AI should finalize a
+secure provider token strategy. Acceptable options include encrypted server-side
+token storage, a short-lived backend token handoff during OAuth callback, or an
+official Supabase-supported server flow. Tokens must remain infrastructure-only
+and must not be serialized through application DTOs or frontend responses.
 
 ## DTO Mapping
 
@@ -158,7 +142,7 @@ sequenceDiagram
     API->>Service: list_repositories(user, query)
     Service->>TokenProvider: Resolve linked GitHub token
     TokenProvider-->>Service: Infrastructure-only token
-    Service->>Client: GET /user/repos
+    Service->>Client: GET /user/repos or /search/repositories
     Client->>GitHub: Authenticated request
     GitHub-->>Client: Repository JSON page
     Client-->>Service: Decoded JSON
@@ -182,9 +166,10 @@ Repository discovery supports these query parameters:
 - `search`: backend name filter applied after the GitHub page is fetched.
 
 The backend forwards pagination, sort, direction, and visibility to GitHub.
-Search filtering is intentionally local to the fetched page for Sprint 3.9C.
-Future sprints can introduce GitHub search APIs or cached repository discovery
-if broader search semantics are needed.
+When `search` is provided, the backend uses GitHub Search API with `in:name`,
+`fork:true`, and the requested visibility qualifier. Search therefore runs
+across accessible GitHub repositories while preserving the existing pagination
+contract.
 
 ## Repository Discovery DTO Mapping
 

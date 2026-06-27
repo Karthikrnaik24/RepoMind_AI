@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+﻿from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
@@ -90,7 +90,9 @@ async def test_repositories_endpoint_passes_query_parameters() -> None:
         "visibility": "private",
         "search": "repo",
     }
-    assert response.json()["meta"]["page"] == 3
+    payload = response.json()
+    assert payload["meta"]["page"] == 3
+    assert payload["meta"]["search_scope"] == "github"
 
 
 @pytest.mark.asyncio

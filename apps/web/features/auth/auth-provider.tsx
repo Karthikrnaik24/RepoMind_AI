@@ -29,13 +29,16 @@ function getFriendlyAuthError(message: string | undefined) {
 
   const normalized = message.toLowerCase();
   if (normalized.includes("already") && normalized.includes("linked")) {
-    return "This GitHub account is already linked.";
+    return "This provider is already linked to an account.";
   }
   if (normalized.includes("cancel")) {
-    return "GitHub linking was cancelled.";
+    return "The OAuth connection was cancelled.";
+  }
+  if (normalized.includes("provider") || normalized.includes("unavailable")) {
+    return "This identity provider is unavailable right now.";
   }
 
-  return "GitHub linking could not be started. Please try again.";
+  return "The OAuth connection could not be started. Please try again.";
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -78,6 +81,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setAuthError(null);
     await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: getOAuthRedirectUrl(),
+      },
+    });
+  }, [getSupabaseClient]);
+
+  const signInWithGitHub = useCallback(async () => {
+    const supabase = getSupabaseClient();
+    setAuthError(null);
+    await supabase.auth.signInWithOAuth({
+      provider: "github",
       options: {
         redirectTo: getOAuthRedirectUrl(),
       },
@@ -162,6 +176,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       loading,
       refreshSession,
       session,
+      signInWithGitHub,
       signInWithGoogle,
       signOut,
       user,
@@ -173,6 +188,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       loading,
       refreshSession,
       session,
+      signInWithGitHub,
       signInWithGoogle,
       signOut,
       user,
