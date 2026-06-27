@@ -13,6 +13,7 @@ dependencies = [
   "pydantic-settings>=2.7.0",
   "psycopg[binary]>=3.2.3",
   "sqlalchemy>=2.0.36",
+  "pyjwt[crypto]>=2.10.1",
 ]
 
 [dependency-groups]

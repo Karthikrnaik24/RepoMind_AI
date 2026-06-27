@@ -1,4 +1,4 @@
-"""Base environment-driven settings.
+﻿"""Base environment-driven settings.
 
 All environment-specific settings inherit from this module so infrastructure,
 API routes, and dependency providers share one typed configuration contract.
@@ -29,6 +29,7 @@ class BaseAppSettings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", alias="REDIS_URL")
     frontend_origin: str = Field(default="http://localhost:3000", alias="FRONTEND_ORIGIN")
     supabase_url: str = Field(default="", alias="SUPABASE_URL")
+    supabase_jwks_url: str = Field(default="", alias="SUPABASE_JWKS_URL")
     supabase_anon_key: SecretStr = Field(default=SecretStr(""), alias="SUPABASE_ANON_KEY")
     supabase_service_role_key: SecretStr = Field(
         default=SecretStr(""),
@@ -83,9 +84,20 @@ class BaseAppSettings(BaseSettings):
                 self.supabase_url,
                 self.supabase_anon_key.get_secret_value(),
                 self.supabase_service_role_key.get_secret_value(),
-                self.supabase_jwt_secret.get_secret_value(),
+                self.supabase_jwks_url,
+
             ],
         )
+
+    @model_validator(mode="after")
+    def derive_supabase_jwks_url(self) -> "BaseAppSettings":
+        """Derive the Supabase JWKS URL from SUPABASE_URL when omitted."""
+
+        if self.supabase_url and not self.supabase_jwks_url:
+            self.supabase_jwks_url = (
+                f"{self.supabase_url.rstrip('/')}/auth/v1/.well-known/jwks.json"
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_production_cors(self) -> "BaseAppSettings":
@@ -95,3 +107,4 @@ class BaseAppSettings(BaseSettings):
             msg = "FRONTEND_ORIGIN cannot be a wildcard outside development."
             raise ValueError(msg)
         return self
+

@@ -1,4 +1,4 @@
-# RepoMind AI API
+﻿# RepoMind AI API
 
 Backend API application for RepoMind AI.
 
@@ -27,13 +27,15 @@ Only system health and status endpoints are implemented at this stage. Versioned
 
 ## Supabase Identity Foundation
 
-Sprint 3.1 loads Supabase configuration and prepares JWT verification utilities. It does not require authentication on any route.
+Supabase access tokens are verified with ES256 signing keys from the Supabase JWKS endpoint. Legacy HS256 verification is supported only when `SUPABASE_JWT_SECRET` is configured.
 
 Required backend variables:
 
 - `SUPABASE_URL`
+- `SUPABASE_JWKS_URL` (optional; derived from `SUPABASE_URL` when omitted)
 - `SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
-- `SUPABASE_JWT_SECRET`
+- `SUPABASE_JWT_SECRET` (optional legacy HS256 fallback only)
 
 `GET /api/v1/status` reports whether Supabase configuration exists without calling Supabase APIs.
+

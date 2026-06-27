@@ -16,7 +16,7 @@ TEST_ENVIRONMENT = {
     "SUPABASE_URL": "https://test-project.supabase.co",
     "SUPABASE_ANON_KEY": "test-anon-key",
     "SUPABASE_SERVICE_ROLE_KEY": "test-service-role-key",
-    "SUPABASE_JWT_SECRET": "test-jwt-secret",
+    "SUPABASE_JWT_SECRET": "test-jwt-secret-with-32-bytes-minimum",
 }
 
 
@@ -36,3 +36,4 @@ def configure_testing_environment() -> Iterator[None]:
             else:
                 os.environ[key] = previous_value
         get_settings.cache_clear()
+

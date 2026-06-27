@@ -1,4 +1,4 @@
-"""Testing environment settings."""
+﻿"""Testing environment settings."""
 
 from pydantic import SecretStr
 
@@ -14,5 +14,6 @@ class TestingSettings(BaseAppSettings):
     supabase_url: str = "https://test-project.supabase.co"
     supabase_anon_key: SecretStr = SecretStr("test-anon-key")
     supabase_service_role_key: SecretStr = SecretStr("test-service-role-key")
-    supabase_jwt_secret: SecretStr = SecretStr("test-jwt-secret")  # noqa: S105
+    supabase_jwt_secret: SecretStr = SecretStr("test-jwt-secret-with-32-bytes-minimum")  # noqa: S105
     log_level: str = "WARNING"
+
