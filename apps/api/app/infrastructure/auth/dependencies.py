@@ -3,7 +3,8 @@
 These providers prepare authentication wiring without implementing login, OAuth,
 RBAC, user synchronization, or authentication middleware.
 """
-
+import logging
+logger = logging.getLogger(__name__)
 from typing import Annotated
 
 from fastapi import Depends, Header
@@ -77,5 +78,11 @@ def get_current_user(
         raise
     except AuthorizationException as exc:
         raise AuthenticationException(exc.message, code=exc.code, details=exc.details) from exc
+    # except Exception as exc:
+    #     raise AuthenticationException("Invalid JWT.", code="invalid_token") from exc
+
     except Exception as exc:
+        logger.exception("JWT verification failed")
         raise AuthenticationException("Invalid JWT.", code="invalid_token") from exc
+
+    
