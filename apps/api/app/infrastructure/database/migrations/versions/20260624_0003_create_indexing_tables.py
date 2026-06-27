@@ -1,4 +1,4 @@
-﻿"""Create indexing, file, chunk, and embedding tables.
+"""Create indexing, file, chunk, and embedding tables.
 
 Revision ID: 20260624_0003
 Revises: 20260624_0002
@@ -29,6 +29,21 @@ def _is_local_development() -> bool:
     return os.getenv("APP_ENV", "development").lower() in LOCAL_DEVELOPMENT_ENVIRONMENTS
 
 
+def _is_pgvector_installed() -> bool:
+    """Return whether the current database already has pgvector installed."""
+
+    bind = op.get_bind()
+    if bind.dialect.name != "postgresql":
+        return False
+
+    return (
+        bind.execute(
+            sa.text("SELECT 1 FROM pg_extension WHERE extname = 'vector'"),
+        ).scalar()
+        is not None
+    )
+
+
 def _is_pgvector_available() -> bool:
     """Return whether PostgreSQL can install the pgvector extension."""
 
@@ -47,18 +62,24 @@ def _is_pgvector_available() -> bool:
 def _should_use_pgvector() -> bool:
     """Require pgvector in production, but allow a local v0.2.0 fallback."""
 
-    if _is_pgvector_available():
-        op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    if _is_pgvector_installed():
         return True
 
     if _is_local_development():
         # TODO: pgvector is required before v0.3.0 Repository Intelligence.
         # Local v0.2.0 development can migrate without vector because indexing,
-        # embeddings, and AI retrieval are intentionally not active yet.
+        # embeddings, and AI retrieval are intentionally not active yet. Do not
+        # attempt CREATE EXTENSION locally because many dev roles lack extension
+        # privileges even when pgvector is available on the server.
         return False
+
+    if _is_pgvector_available():
+        op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        return True
 
     msg = "pgvector extension is required outside local development."
     raise RuntimeError(msg)
+
 
 
 def _index_exists(table_name: str, index_name: str) -> bool:
@@ -399,6 +420,4 @@ def downgrade() -> None:
     op.drop_index("ix_indexing_jobs_repository_id_branch_id_created_at", table_name="indexing_jobs")
     op.drop_index("ix_indexing_jobs_provider_commit_sha", table_name="indexing_jobs")
     op.drop_table("indexing_jobs")
-
-
 

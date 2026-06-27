@@ -60,7 +60,7 @@ Recommended local services:
 
 - Frontend development server.
 - Backend FastAPI development server.
-- PostgreSQL with `pgvector`.
+- PostgreSQL. `pgvector` is recommended locally but optional for v0.2.0 migrations.
 - Redis.
 - Background worker process.
 - Optional local object storage emulator if file artifacts are introduced.
@@ -139,8 +139,10 @@ Compose requirements:
 Recommended local Compose responsibilities:
 
 - Start database and queue dependencies.
-- Provide consistent PostgreSQL extensions such as `pgvector`.
+- Provide consistent PostgreSQL extensions such as `pgvector` when available.
 - Support running migrations against local PostgreSQL.
+- For v0.2.0 local development, Alembic can run without `pgvector`; the indexing migration uses a nullable JSONB placeholder for `embeddings.embedding` when `APP_ENV` is local/test and the `vector` extension is not already installed.
+- TODO: `pgvector` is required before v0.3.0 Repository Intelligence, when indexing, embeddings, and vector retrieval become active.
 - Support worker testing for indexing and AI jobs.
 
 ## Vercel Deployment
@@ -222,7 +224,7 @@ Supabase responsibilities:
 Recommended Supabase setup:
 
 - Create separate projects for staging and production.
-- Enable `pgvector`.
+- Enable `pgvector` in staging and production before applying repository intelligence migrations.
 - Configure connection pooling for API and worker services.
 - Use least-privilege database roles.
 - Store database connection strings in backend and worker secret environments only.
@@ -656,3 +658,4 @@ Before production launch:
 - OpenAI API key is backend-only and budget alerts are configured.
 - Worker queue monitoring is in place.
 - Documentation is updated for deployment and operations.
+
