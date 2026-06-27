@@ -16,7 +16,10 @@ from app.interfaces.api.schemas.responses.github import (
 )
 from app.interfaces.api.schemas.responses.health import HealthData, StatusData
 from app.interfaces.api.schemas.responses.identity import MeData, MeResponse
-from app.interfaces.api.schemas.responses.repository import RegisteredRepositoryResponse
+from app.interfaces.api.schemas.responses.repository import (
+    RegisteredRepositoryResponse,
+    RepositoryUnregisterResponse,
+)
 
 __all__ = [
     "AdminPingResponse",
@@ -31,6 +34,7 @@ __all__ = [
     "MeData",
     "MeResponse",
     "RegisteredRepositoryResponse",
+    "RepositoryUnregisterResponse",
     "StatusData",
     "failure_response",
     "success_response",

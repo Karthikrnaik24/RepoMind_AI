@@ -51,6 +51,8 @@ def test_repository_model_constraints_and_indexes_are_declared() -> None:
     assert "ix_repositories_archived_at" in index_names
     assert "ix_repositories_registered_at" in index_names
     assert "ix_repositories_sync_status" in index_names
+    assert "ix_repositories_favorite" in index_names
+    assert "ix_repositories_last_synced_at" in index_names
 
 
 def test_repository_branch_model_constraints_and_indexes_are_declared() -> None:

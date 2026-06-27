@@ -1,6 +1,8 @@
-"""Repository registration application service."""
+"""Repository registration and management application service."""
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError
@@ -12,6 +14,8 @@ from app.domain.identity import AuthenticatedUser
 from app.infrastructure.database.models import Repository
 from app.repositories.repository_repository import RepositoryRepository
 
+UNSET = object()
+
 
 @dataclass(frozen=True)
 class RepositoryRegistrationInput:
@@ -22,8 +26,17 @@ class RepositoryRegistrationInput:
     default_branch: str
 
 
+@dataclass(frozen=True)
+class RepositorySettingsUpdate:
+    """Mutable user-owned settings for a registered repository."""
+
+    display_name: str | None | object = UNSET
+    favorite: bool | None | object = UNSET
+    notes: str | None | object = UNSET
+
+
 class RepositoryRegistrationService:
-    """Register discovered GitHub repositories as managed RepoMind resources."""
+    """Register and manage discovered GitHub repositories as RepoMind resources."""
 
     def __init__(
         self,
@@ -74,6 +87,7 @@ class RepositoryRegistrationService:
                 else None,
                 description=github_repository.description,
                 web_url=github_repository.html_url,
+                github_updated_at=github_repository.updated_at,
             )
             session.flush()
             session.refresh(repository)
@@ -112,6 +126,84 @@ class RepositoryRegistrationService:
 
         return self.repository_repository.list_by_owner(owner_user_id)
 
+    def update_repository_settings(
+        self,
+        *,
+        owner_user_id: UUID,
+        repository_id: UUID,
+        settings_update: RepositorySettingsUpdate,
+    ) -> Repository:
+        """Update mutable repository settings without changing GitHub identity."""
+
+        repository = self.get_registered_repository(
+            owner_user_id=owner_user_id,
+            repository_id=repository_id,
+        )
+        updated_repository = self.repository_repository.update_management_settings(
+            repository,
+            display_name=settings_update.display_name,
+            favorite=settings_update.favorite,
+            notes=settings_update.notes,
+            unset=UNSET,
+        )
+        self.repository_repository.session.flush()
+        self.repository_repository.session.refresh(updated_repository)
+        return updated_repository
+
+    def refresh_repository_metadata(
+        self,
+        *,
+        owner_user_id: UUID,
+        repository_id: UUID,
+        authenticated_user: AuthenticatedUser,
+    ) -> Repository:
+        """Refresh GitHub metadata without cloning or reading repository contents."""
+
+        repository = self.get_registered_repository(
+            owner_user_id=owner_user_id,
+            repository_id=repository_id,
+        )
+        try:
+            github_repository = self.github_service.get_repository_by_full_name(
+                authenticated_user,
+                full_name=repository.full_name,
+            )
+            self._validate_registered_repository_identity(repository, github_repository)
+            refreshed_repository = self.repository_repository.update_refreshed_metadata(
+                repository,
+                description=github_repository.description,
+                language=github_repository.primary_language.name
+                if github_repository.primary_language
+                else None,
+                default_branch=github_repository.default_branch,
+                visibility=github_repository.visibility or repository.visibility,
+                github_updated_at=github_repository.updated_at,
+                refreshed_at=datetime.now(UTC),
+            )
+            self.repository_repository.session.flush()
+            self.repository_repository.session.refresh(refreshed_repository)
+            return refreshed_repository
+        except Exception:
+            self.repository_repository.mark_sync_error(repository)
+            raise
+
+    def unregister_repository(
+        self,
+        *,
+        owner_user_id: UUID,
+        repository_id: UUID,
+    ) -> UUID:
+        """Remove a registered repository from RepoMind AI without touching GitHub."""
+
+        repository = self.get_registered_repository(
+            owner_user_id=owner_user_id,
+            repository_id=repository_id,
+        )
+        removed_id = repository.id
+        self.repository_repository.delete_registered_repository(repository)
+        self.repository_repository.session.flush()
+        return removed_id
+
     @staticmethod
     def _validate_repository(
         registration_input: RepositoryRegistrationInput,
@@ -132,3 +224,29 @@ class RepositoryRegistrationService:
                 "Repository default branch did not match GitHub.",
                 code="repository_validation_failed",
             )
+
+    @staticmethod
+    def _validate_registered_repository_identity(
+        repository: Repository,
+        github_repository: RepositorySummary,
+    ) -> None:
+        if str(github_repository.github_id) != repository.provider_repository_id:
+            raise ResourceNotFoundException(
+                "GitHub repository could not be validated.",
+                code="github_repository_not_found",
+            )
+        if github_repository.full_name.lower() != repository.full_name.lower():
+            raise ResourceNotFoundException(
+                "GitHub repository could not be validated.",
+                code="github_repository_not_found",
+            )
+
+
+def repository_settings_from_values(values: dict[str, Any]) -> RepositorySettingsUpdate:
+    """Build a settings update value object from provided request fields."""
+
+    return RepositorySettingsUpdate(
+        display_name=values.get("display_name", UNSET),
+        favorite=values.get("favorite", UNSET),
+        notes=values.get("notes", UNSET),
+    )

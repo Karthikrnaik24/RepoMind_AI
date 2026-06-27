@@ -42,7 +42,7 @@ class Repository(BaseModel):
             name="visibility_valid",
         ),
         CheckConstraint(
-            "sync_status IN ('PENDING', 'READY', 'FAILED')",
+            "sync_status IN ('PENDING', 'READY', 'ERROR')",
             name="sync_status_valid",
         ),
         Index(
@@ -57,6 +57,8 @@ class Repository(BaseModel):
         Index("ix_repositories_archived_at", "archived_at"),
         Index("ix_repositories_registered_at", "registered_at"),
         Index("ix_repositories_sync_status", "sync_status"),
+        Index("ix_repositories_favorite", "favorite"),
+        Index("ix_repositories_last_synced_at", "last_synced_at"),
     )
 
     owner_user_id: Mapped[UUID] = mapped_column(
@@ -70,6 +72,9 @@ class Repository(BaseModel):
     full_name: Mapped[str] = mapped_column(String(511), nullable=False)
     default_branch: Mapped[str] = mapped_column(String(255), nullable=False)
     visibility: Mapped[str] = mapped_column(String(30), nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     language: Mapped[str | None] = mapped_column(String(120), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     clone_url: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -79,6 +84,11 @@ class Repository(BaseModel):
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+    )
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    github_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
     )
     last_indexed_at: Mapped[datetime | None] = mapped_column(nullable=True)
     archived_at: Mapped[datetime | None] = mapped_column(nullable=True)

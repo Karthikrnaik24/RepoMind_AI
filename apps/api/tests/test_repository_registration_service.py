@@ -4,6 +4,7 @@ import pytest
 from app.application.services.repository_registration_service import (
     RepositoryRegistrationInput,
     RepositoryRegistrationService,
+    RepositorySettingsUpdate,
 )
 from app.core.exceptions import AuthorizationException, ConflictException, ResourceNotFoundException
 from app.domain.github import RepositorySummary
@@ -116,6 +117,10 @@ def test_successful_registration_persists_repository(
     assert persisted_repository.description == "AI software engineer for GitHub repositories"
     assert persisted_repository.web_url == "https://github.com/Karthikrnaik24/RepoMind_AI"
     assert persisted_repository.sync_status == "PENDING"
+    assert persisted_repository.favorite is False
+    assert persisted_repository.display_name is None
+    assert persisted_repository.notes is None
+    assert persisted_repository.github_updated_at is not None
     assert persisted_repository.registered_at is not None
 
 
@@ -222,6 +227,7 @@ def test_list_registered_repositories_returns_only_user_owned_repositories(
 
     assert repositories == [repository]
 
+
 def test_get_registered_repository_returns_owner_scoped_repository(
     db_session: Session,
     owner: User,
@@ -269,3 +275,89 @@ def test_get_registered_repository_hides_unowned_repository(
         )
 
     assert exc_info.value.code == "repository_not_found"
+
+
+def test_update_repository_settings_changes_only_mutable_fields(
+    db_session: Session,
+    owner: User,
+    authenticated_user: AuthenticatedUser,
+) -> None:
+    service = create_service(RepositorySummary.from_github_api(repository_payload()), db_session)
+    repository = service.register_repository(
+        owner_user_id=owner.id,
+        authenticated_user=authenticated_user,
+        registration_input=registration_input(),
+    )
+
+    updated_repository = service.update_repository_settings(
+        owner_user_id=owner.id,
+        repository_id=repository.id,
+        settings_update=RepositorySettingsUpdate(
+            display_name="Production RepoMind",
+            favorite=True,
+            notes="Critical product repository",
+        ),
+    )
+
+    assert updated_repository.display_name == "Production RepoMind"
+    assert updated_repository.favorite is True
+    assert updated_repository.notes == "Critical product repository"
+    assert updated_repository.provider_repository_id == "123"
+    assert updated_repository.full_name == "Karthikrnaik24/RepoMind_AI"
+
+
+def test_refresh_repository_metadata_updates_github_metadata_only(
+    db_session: Session,
+    owner: User,
+    authenticated_user: AuthenticatedUser,
+) -> None:
+    initial_service = create_service(
+        RepositorySummary.from_github_api(repository_payload()),
+        db_session,
+    )
+    repository = initial_service.register_repository(
+        owner_user_id=owner.id,
+        authenticated_user=authenticated_user,
+        registration_input=registration_input(),
+    )
+    refreshed_payload = repository_payload(private=False)
+    refreshed_payload["description"] = "Refreshed repository description"
+    refreshed_payload["language"] = "Python"
+    refreshed_payload["default_branch"] = "trunk"
+    refresh_service = create_service(
+        RepositorySummary.from_github_api(refreshed_payload),
+        db_session,
+    )
+
+    refreshed_repository = refresh_service.refresh_repository_metadata(
+        owner_user_id=owner.id,
+        repository_id=repository.id,
+        authenticated_user=authenticated_user,
+    )
+
+    assert refreshed_repository.description == "Refreshed repository description"
+    assert refreshed_repository.language == "Python"
+    assert refreshed_repository.default_branch == "trunk"
+    assert refreshed_repository.visibility == "public"
+    assert refreshed_repository.sync_status == "READY"
+    assert refreshed_repository.last_synced_at is not None
+    assert refreshed_repository.github_updated_at is not None
+
+
+def test_unregister_repository_removes_local_record_only(
+    db_session: Session,
+    owner: User,
+    authenticated_user: AuthenticatedUser,
+) -> None:
+    service = create_service(RepositorySummary.from_github_api(repository_payload()), db_session)
+    repository = service.register_repository(
+        owner_user_id=owner.id,
+        authenticated_user=authenticated_user,
+        registration_input=registration_input(),
+    )
+    repository_id = repository.id
+
+    removed_id = service.unregister_repository(owner_user_id=owner.id, repository_id=repository_id)
+
+    assert removed_id == repository_id
+    assert db_session.get(Repository, repository_id) is None

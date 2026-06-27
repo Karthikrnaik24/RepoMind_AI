@@ -7,6 +7,8 @@ from app.application.services.indexing_service import IndexingService
 from app.application.services.repository_registration_service import (
     RepositoryRegistrationInput,
     RepositoryRegistrationService,
+    RepositorySettingsUpdate,
+    repository_settings_from_values,
 )
 from app.application.services.repository_service import RepositoryService
 from app.application.services.user_service import UserService
@@ -20,7 +22,9 @@ __all__ = [
     "RepositoryRegistrationInput",
     "RepositoryRegistrationService",
     "RepositoryService",
+    "RepositorySettingsUpdate",
     "SyncedUserIdentity",
     "UserService",
     "UserSyncService",
+    "repository_settings_from_values",
 ]

@@ -1,18 +1,20 @@
 # Repository Architecture
 
-RepoMind AI treats GitHub repositories and registered repositories as separate concepts. GitHub discovery is a read-only view of repositories accessible through a linked GitHub identity. Repository registration converts one of those discovered repositories into a managed RepoMind AI resource that can later enter indexing, analysis, and AI workflows.
+RepoMind AI treats GitHub repositories and registered repositories as separate concepts. GitHub discovery is a read-only view of repositories accessible through a linked GitHub identity. Repository registration converts one of those discovered repositories into a managed RepoMind AI resource. Repository management lets the user maintain local settings and refresh GitHub metadata without cloning, indexing, embedding, parsing, or running AI workflows.
 
 ## Current Scope
 
-Sprint 3.10 implements repository registration only.
-
-Implemented now:
+Implemented through Sprint 3.12:
 
 - Browse accessible GitHub repositories through the existing GitHub client and service layer.
 - Register a GitHub repository for the authenticated local user.
 - Prevent duplicate registration for the same user.
 - Store repository metadata with an initial `PENDING` sync status.
 - Display registered repositories in `/repositories`.
+- Open a dashboard for each registered repository at `/repositories/[repositoryId]`.
+- Update local repository settings: `display_name`, `favorite`, and `notes`.
+- Refresh GitHub metadata: description, language, default branch, visibility, and GitHub updated timestamp.
+- Unregister a repository from RepoMind AI without deleting it from GitHub.
 
 Explicitly not implemented yet:
 
@@ -21,6 +23,31 @@ Explicitly not implemented yet:
 - Repository indexing.
 - Embedding generation.
 - RAG or AI chat.
+
+## Repository Lifecycle
+
+```mermaid
+flowchart TD
+    A["GitHub Repository"] --> B["Registered"]
+    B --> C["Managed"]
+    C --> D["Refreshed"]
+    C --> E["Removed"]
+    D --> C
+    C --> F["Future Indexing Pipeline"]
+```
+
+Lifecycle states:
+
+- `Registered`: a GitHub repository has been validated and stored as a local `repositories` record.
+- `Managed`: the user can favorite it, set an alias, add notes, open its dashboard, refresh metadata, or unregister it.
+- `Refreshed`: GitHub metadata has been refreshed through the GitHub API without repository content access.
+- `Removed`: the local RepoMind AI registration is deleted; the GitHub repository remains untouched.
+
+Supported `sync_status` values:
+
+- `PENDING`: registered but not refreshed or processed yet.
+- `READY`: metadata refresh completed successfully.
+- `ERROR`: the latest metadata refresh failed or requires attention.
 
 ## Conceptual Flow
 
@@ -33,56 +60,62 @@ flowchart TD
     E --> F["Prevent Duplicate Registration"]
     F --> G["Persist repositories Record"]
     G --> H["Registered Repository sync_status=PENDING"]
-    H --> I["Future Indexing Pipeline"]
+    H --> I["Manage Repository Settings"]
+    I --> J["Refresh GitHub Metadata"]
+    I --> K["Unregister Local Resource"]
+    J --> L["sync_status=READY"]
 ```
 
 ## Backend Layers
 
 ### API Layer
 
-`POST /api/v1/repositories/register` accepts a minimal registration request:
+Repository endpoints are protected by the existing authentication and user synchronization pipeline:
 
-```json
-{
-  "github_repository_id": "123",
-  "full_name": "owner/repository",
-  "default_branch": "main"
-}
-```
+- `GET /api/v1/repositories`: list repositories registered by the authenticated user.
+- `POST /api/v1/repositories/register`: register a discovered GitHub repository.
+- `GET /api/v1/repositories/{id}`: return one owner-scoped registered repository.
+- `PATCH /api/v1/repositories/{id}`: update local settings only.
+- `POST /api/v1/repositories/{id}/refresh`: refresh GitHub metadata only.
+- `DELETE /api/v1/repositories/{id}`: unregister the local managed repository.
 
-The endpoint is protected by the existing authentication dependency. It synchronizes the authenticated Supabase user into the local database, then delegates registration to the application service. API routes do not perform SQLAlchemy queries directly and do not return ORM models.
-
-`GET /api/v1/repositories` returns only repositories registered by the authenticated local user.
+The API never allows mutation of GitHub identity fields such as provider, provider repository id, full name, or owner login through settings updates.
 
 ### Application Layer
 
-`RepositoryRegistrationService` owns the registration use case:
+`RepositoryRegistrationService` owns the repository lifecycle use cases:
 
 - Validate that the GitHub repository can be resolved through `GitHubService`.
-- Validate the GitHub repository id, full name, and default branch against GitHub data.
+- Validate GitHub repository id, full name, and default branch during registration.
 - Check existing registrations through `RepositoryRepository`.
 - Persist a local `repositories` row with `sync_status = PENDING`.
-- Roll back the transaction on persistence errors.
+- Update local settings without touching GitHub identity metadata.
+- Refresh metadata from normalized `RepositorySummary` DTOs.
+- Delete the local registration without calling any GitHub delete APIs.
 
 ### Repository Layer
 
 `RepositoryRepository` encapsulates repository table operations:
 
 - Lookup by owner and GitHub repository id.
+- Lookup by owner and local repository id.
 - List registered repositories by owner.
 - Stage registered repository creation.
+- Update local management settings.
+- Update refreshed GitHub metadata.
+- Delete local repository registrations.
 
 Future services should continue to use this repository layer rather than exposing ORM queries directly.
 
 ### GitHub Layer
 
-`GitHubService` uses `GitHubClient` and `GitHubTokenProvider` to validate the repository through GitHub without exposing OAuth provider tokens outside infrastructure. Repository registration relies on normalized `RepositorySummary` DTOs, not raw GitHub JSON.
+`GitHubService` uses `GitHubClient` and `GitHubTokenProvider` to validate and refresh repository metadata without exposing OAuth provider tokens outside infrastructure. Repository management relies on normalized `RepositorySummary` DTOs, not raw GitHub JSON.
 
 ## Database Mapping
 
 Registered repositories are stored in the existing `repositories` table.
 
-Registration-related fields:
+Registration and management fields:
 
 - `owner_user_id`: local user who registered the repository.
 - `provider`: `github`.
@@ -90,43 +123,57 @@ Registration-related fields:
 - `owner_name`: GitHub owner login.
 - `name`: repository name.
 - `full_name`: GitHub `owner/name` value.
-- `default_branch`: GitHub default branch at registration time.
+- `default_branch`: GitHub default branch from registration or latest metadata refresh.
 - `visibility`: public/private/internal metadata.
+- `display_name`: optional local alias.
+- `favorite`: local favorite flag.
+- `notes`: optional local notes.
 - `language`: primary GitHub language when available.
 - `description`: GitHub repository description when available.
 - `web_url`: GitHub HTML URL.
 - `registered_at`: timestamp when the repository became managed by RepoMind AI.
-- `sync_status`: initial value `PENDING`; future indexing work will transition this status.
+- `sync_status`: `PENDING`, `READY`, or `ERROR`.
+- `last_synced_at`: timestamp of the latest successful metadata refresh.
+- `github_updated_at`: latest GitHub repository update timestamp returned by GitHub metadata.
 
 ## Frontend Flow
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Dashboard
+    participant UI
     participant API
     participant GitHub
     participant Database
 
-    User->>Dashboard: Click Register Repository
-    Dashboard->>API: POST /api/v1/repositories/register
-    API->>GitHub: Validate repository through GitHubService
+    User->>UI: Manage registered repository
+    UI->>API: PATCH /api/v1/repositories/{id}
+    API->>Database: Update display_name, favorite, notes
+    Database-->>API: Updated repository
+    API-->>UI: RegisteredRepositoryResponse
+
+    User->>UI: Refresh metadata
+    UI->>API: POST /api/v1/repositories/{id}/refresh
+    API->>GitHub: Fetch repository metadata
     GitHub-->>API: Normalized RepositorySummary
-    API->>Database: Insert repositories row
-    Database-->>API: Registered repository
-    API-->>Dashboard: RegisteredRepositoryResponse
-    Dashboard-->>User: Show Registered badge and disable button
+    API->>Database: Update metadata and sync status
+    API-->>UI: RegisteredRepositoryResponse
+
+    User->>UI: Confirm unregister
+    UI->>API: DELETE /api/v1/repositories/{id}
+    API->>Database: Delete local registration
+    API-->>UI: Removed response
 ```
 
-The dashboard overlays registered state onto GitHub discovery cards. `/repositories` shows only registered repositories and does not display unregistered GitHub discovery results.
+`/repositories` shows only registered repositories and management actions. `/repositories/[repositoryId]` remains the dashboard home for a managed repository.
 
 ## Future Indexing Pipeline
 
-Registration prepares the repository for future processing. The future pipeline should be triggered separately from registration and should use background jobs.
+Registration and management prepare the repository for future processing. The future pipeline should be triggered separately from registration and should use background jobs.
 
 ```mermaid
 flowchart LR
-    A["Registered Repository"] --> B["Future Indexing Job"]
+    A["Managed Repository"] --> B["Future Indexing Job"]
     B --> C["Clone or Fetch Contents"]
     C --> D["Parse Files"]
     D --> E["Create code_chunks"]
@@ -134,4 +181,4 @@ flowchart LR
     F --> G["Enable RAG and Chat"]
 ```
 
-This separation keeps user intent explicit: registering a repository means RepoMind AI is allowed to manage it, but no repository contents are fetched or analyzed during Sprint 3.10.
+This separation keeps user intent explicit: managing a repository means RepoMind AI tracks metadata and local settings, but repository contents are not fetched or analyzed during Sprint 3.12.

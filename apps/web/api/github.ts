@@ -35,6 +35,8 @@ export type GitHubRepositorySummary = {
   };
 };
 
+export type RepositorySyncStatus = "PENDING" | "READY" | "ERROR";
+
 export type RegisteredRepository = {
   id: string;
   owner_user_id: string;
@@ -44,13 +46,24 @@ export type RegisteredRepository = {
   owner_login: string;
   default_branch: string;
   visibility: string;
+  display_name: string | null;
+  favorite: boolean;
+  notes: string | null;
   language: string | null;
   description: string | null;
   html_url: string | null;
   registered_at: string;
-  sync_status: string;
+  sync_status: RepositorySyncStatus;
+  last_synced_at: string | null;
+  github_updated_at: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type UpdateRepositorySettingsInput = {
+  display_name?: string | null;
+  favorite?: boolean;
+  notes?: string | null;
 };
 
 export type GitHubRepositoryVisibility = "all" | "public" | "private";
@@ -211,4 +224,58 @@ export async function getRegisteredRepository(
 
   const payload = await parseSuccess<RegisteredRepository>(response);
   return payload.data;
+}
+
+export async function updateRegisteredRepositorySettings(
+  { baseUrl, fetcher, getSession }: GitHubApiOptions,
+  repositoryId: string,
+  settings: UpdateRepositorySettingsInput,
+): Promise<RegisteredRepository> {
+  const client = createApiClient({ baseUrl, fetcher, getSession });
+  const response = await client.request(`/api/v1/repositories/${repositoryId}`, {
+    authenticated: true,
+    body: JSON.stringify(settings),
+    headers: { "Content-Type": "application/json" },
+    method: "PATCH",
+  });
+
+  if (!response.ok) {
+    throw new Error("Repository settings update failed.");
+  }
+
+  const payload = await parseSuccess<RegisteredRepository>(response);
+  return payload.data;
+}
+
+export async function refreshRegisteredRepository(
+  { baseUrl, fetcher, getSession }: GitHubApiOptions,
+  repositoryId: string,
+): Promise<RegisteredRepository> {
+  const client = createApiClient({ baseUrl, fetcher, getSession });
+  const response = await client.request(`/api/v1/repositories/${repositoryId}/refresh`, {
+    authenticated: true,
+    method: "POST",
+  });
+
+  if (!response.ok) {
+    throw new Error("Repository refresh failed.");
+  }
+
+  const payload = await parseSuccess<RegisteredRepository>(response);
+  return payload.data;
+}
+
+export async function unregisterRegisteredRepository(
+  { baseUrl, fetcher, getSession }: GitHubApiOptions,
+  repositoryId: string,
+): Promise<void> {
+  const client = createApiClient({ baseUrl, fetcher, getSession });
+  const response = await client.request(`/api/v1/repositories/${repositoryId}`, {
+    authenticated: true,
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error("Repository unregister failed.");
+  }
 }

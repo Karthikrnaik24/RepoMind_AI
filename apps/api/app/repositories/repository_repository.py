@@ -1,5 +1,6 @@
 """Repository metadata persistence repository."""
 
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -65,7 +66,11 @@ class RepositoryRepository(BaseRepository[Repository]):
         statement = (
             select(Repository)
             .where(Repository.owner_user_id == owner_user_id)
-            .order_by(Repository.registered_at.desc(), Repository.created_at.desc())
+            .order_by(
+                Repository.favorite.desc(),
+                Repository.registered_at.desc(),
+                Repository.created_at.desc(),
+            )
         )
         return list(self.session.execute(statement).scalars().all())
 
@@ -82,6 +87,7 @@ class RepositoryRepository(BaseRepository[Repository]):
         language: str | None,
         description: str | None,
         web_url: str | None,
+        github_updated_at: datetime | None = None,
     ) -> Repository:
         """Stage a newly registered GitHub repository for insertion."""
 
@@ -98,9 +104,65 @@ class RepositoryRepository(BaseRepository[Repository]):
             description=description,
             web_url=web_url,
             sync_status="PENDING",
+            github_updated_at=github_updated_at,
         )
         self.session.add(repository)
         return repository
+
+    def update_management_settings(
+        self,
+        repository: Repository,
+        *,
+        display_name: str | None | object,
+        favorite: bool | None | object,
+        notes: str | None | object,
+        unset: object,
+    ) -> Repository:
+        """Apply mutable user-owned settings without changing GitHub identity."""
+
+        if display_name is not unset:
+            repository.display_name = display_name  # type: ignore[assignment]
+        if favorite is not unset:
+            repository.favorite = bool(favorite)
+        if notes is not unset:
+            repository.notes = notes  # type: ignore[assignment]
+        self.session.add(repository)
+        return repository
+
+    def update_refreshed_metadata(
+        self,
+        repository: Repository,
+        *,
+        description: str | None,
+        language: str | None,
+        default_branch: str,
+        visibility: str,
+        github_updated_at: datetime | None,
+        refreshed_at: datetime,
+    ) -> Repository:
+        """Apply metadata refreshed from GitHub without touching repository contents."""
+
+        repository.description = description
+        repository.language = language
+        repository.default_branch = default_branch
+        repository.visibility = visibility
+        repository.github_updated_at = github_updated_at
+        repository.last_synced_at = refreshed_at
+        repository.sync_status = "READY"
+        self.session.add(repository)
+        return repository
+
+    def mark_sync_error(self, repository: Repository) -> Repository:
+        """Mark a repository refresh attempt as failed."""
+
+        repository.sync_status = "ERROR"
+        self.session.add(repository)
+        return repository
+
+    def delete_registered_repository(self, repository: Repository) -> None:
+        """Stage a registered repository for removal from RepoMind AI only."""
+
+        self.session.delete(repository)
 
     def add_branch(self, branch: RepositoryBranch) -> RepositoryBranch:
         """Stage a repository branch for insertion."""

@@ -1,5 +1,8 @@
 """Request DTOs."""
 
-from app.interfaces.api.schemas.requests.repository import RegisterRepositoryRequest
+from app.interfaces.api.schemas.requests.repository import (
+    RegisterRepositoryRequest,
+    UpdateRepositorySettingsRequest,
+)
 
-__all__ = ["RegisterRepositoryRequest"]
+__all__ = ["RegisterRepositoryRequest", "UpdateRepositorySettingsRequest"]
