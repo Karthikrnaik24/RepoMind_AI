@@ -1,4 +1,4 @@
-"""Repository analysis ORM models.
+﻿"""Repository analysis ORM models.
 
 These models map dependency_edges and architecture_snapshots from
 docs/DATABASE.md. They store derived repository intelligence only and do not
@@ -93,7 +93,7 @@ class ArchitectureSnapshot(BaseModel):
         ),
         CheckConstraint("version > 0", name="version_positive"),
         Index(
-            "ix_architecture_snapshots_repository_id_branch_id_snapshot_type_created_at",
+            "ix_arch_snapshots_repo_branch_type_created",
             "repository_id",
             "branch_id",
             "snapshot_type",
@@ -127,3 +127,4 @@ class ArchitectureSnapshot(BaseModel):
     indexing_job: Mapped["IndexingJob | None"] = relationship(
         back_populates="architecture_snapshots",
     )
+

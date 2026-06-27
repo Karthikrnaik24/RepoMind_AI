@@ -1,4 +1,4 @@
-"""Create indexing, file, chunk, and embedding tables.
+﻿"""Create indexing, file, chunk, and embedding tables.
 
 Revision ID: 20260624_0003
 Revises: 20260624_0002
@@ -8,6 +8,7 @@ This migration adds repository indexing persistence from docs/DATABASE.md.
 It does not add indexing business logic.
 """
 
+import os
 from collections.abc import Sequence
 
 import sqlalchemy as sa
@@ -19,12 +20,57 @@ revision: str = "20260624_0003"
 down_revision: str | None = "20260624_0002"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+LOCAL_DEVELOPMENT_ENVIRONMENTS = {"development", "local", "test", "testing"}
 
+
+def _is_local_development() -> bool:
+    """Return whether this migration is running in a local/test environment."""
+
+    return os.getenv("APP_ENV", "development").lower() in LOCAL_DEVELOPMENT_ENVIRONMENTS
+
+
+def _is_pgvector_available() -> bool:
+    """Return whether PostgreSQL can install the pgvector extension."""
+
+    bind = op.get_bind()
+    if bind.dialect.name != "postgresql":
+        return False
+
+    return (
+        bind.execute(
+            sa.text("SELECT 1 FROM pg_available_extensions WHERE name = 'vector'"),
+        ).scalar()
+        is not None
+    )
+
+
+def _should_use_pgvector() -> bool:
+    """Require pgvector in production, but allow a local v0.2.0 fallback."""
+
+    if _is_pgvector_available():
+        op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        return True
+
+    if _is_local_development():
+        # TODO: pgvector is required before v0.3.0 Repository Intelligence.
+        # Local v0.2.0 development can migrate without vector because indexing,
+        # embeddings, and AI retrieval are intentionally not active yet.
+        return False
+
+    msg = "pgvector extension is required outside local development."
+    raise RuntimeError(msg)
+
+
+def _index_exists(table_name: str, index_name: str) -> bool:
+    """Return whether an index exists before attempting a conditional drop."""
+
+    inspector = sa.inspect(op.get_bind())
+    return any(index["name"] == index_name for index in inspector.get_indexes(table_name))
 
 def upgrade() -> None:
     """Create indexing_jobs, repository_files, code_chunks, and embeddings."""
 
-    op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+    use_pgvector = _should_use_pgvector()
 
     op.create_table(
         "indexing_jobs",
@@ -261,7 +307,11 @@ def upgrade() -> None:
         sa.Column("model_provider", sa.String(length=80), nullable=False),
         sa.Column("model_name", sa.String(length=120), nullable=False),
         sa.Column("dimensions", sa.Integer(), nullable=False),
-        sa.Column("embedding", Vector(), nullable=False),
+        sa.Column(
+            "embedding",
+            Vector() if use_pgvector else postgresql.JSONB(astext_type=sa.Text()),
+            nullable=not use_pgvector,
+        ),
         sa.Column("content_hash", sa.String(length=64), nullable=False),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column(
@@ -299,26 +349,28 @@ def upgrade() -> None:
         ["model_provider", "model_name"],
     )
     op.create_index(
-        "uq_embeddings_code_chunk_id_model_provider_model_name_content_hash",
+        "uq_embeddings_chunk_model_hash",
         "embeddings",
         ["code_chunk_id", "model_provider", "model_name", "content_hash"],
         unique=True,
     )
-    op.create_index(
-        "ix_embeddings_embedding_hnsw",
-        "embeddings",
-        ["embedding"],
-        postgresql_using="hnsw",
-        postgresql_ops={"embedding": "vector_cosine_ops"},
-    )
+    if use_pgvector:
+        op.create_index(
+            "ix_embeddings_embedding_hnsw",
+            "embeddings",
+            ["embedding"],
+            postgresql_using="hnsw",
+            postgresql_ops={"embedding": "vector_cosine_ops"},
+        )
 
 
 def downgrade() -> None:
     """Drop embeddings, code_chunks, repository_files, and indexing_jobs."""
 
-    op.drop_index("ix_embeddings_embedding_hnsw", table_name="embeddings")
+    if _index_exists("embeddings", "ix_embeddings_embedding_hnsw"):
+        op.drop_index("ix_embeddings_embedding_hnsw", table_name="embeddings")
     op.drop_index(
-        "uq_embeddings_code_chunk_id_model_provider_model_name_content_hash",
+        "uq_embeddings_chunk_model_hash",
         table_name="embeddings",
     )
     op.drop_index("ix_embeddings_model_provider_model_name", table_name="embeddings")
@@ -347,3 +399,6 @@ def downgrade() -> None:
     op.drop_index("ix_indexing_jobs_repository_id_branch_id_created_at", table_name="indexing_jobs")
     op.drop_index("ix_indexing_jobs_provider_commit_sha", table_name="indexing_jobs")
     op.drop_table("indexing_jobs")
+
+
+

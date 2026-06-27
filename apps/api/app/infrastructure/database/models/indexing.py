@@ -1,4 +1,4 @@
-"""Repository indexing ORM models.
+﻿"""Repository indexing ORM models.
 
 These models map repository_files, code_chunks, embeddings, and indexing_jobs
 from docs/DATABASE.md. They intentionally contain no indexing business logic.
@@ -229,7 +229,7 @@ class Embedding(BaseModel):
     __table_args__ = (
         CheckConstraint("dimensions > 0", name="dimensions_positive"),
         Index(
-            "uq_embeddings_code_chunk_id_model_provider_model_name_content_hash",
+            "uq_embeddings_chunk_model_hash",
             "code_chunk_id",
             "model_provider",
             "model_name",
@@ -263,3 +263,4 @@ class Embedding(BaseModel):
 
     code_chunk: Mapped[CodeChunk] = relationship(back_populates="embeddings")
     indexing_job: Mapped[IndexingJob | None] = relationship(back_populates="embeddings")
+

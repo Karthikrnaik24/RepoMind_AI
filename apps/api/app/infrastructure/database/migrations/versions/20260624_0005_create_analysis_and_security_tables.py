@@ -1,4 +1,4 @@
-"""Create analysis and security tables.
+﻿"""Create analysis and security tables.
 
 Revision ID: 20260624_0005
 Revises: 20260624_0004
@@ -183,7 +183,7 @@ def upgrade() -> None:
         ["indexing_job_id"],
     )
     op.create_index(
-        "ix_architecture_snapshots_repository_id_branch_id_snapshot_type_created_at",
+        "ix_arch_snapshots_repo_branch_type_created",
         "architecture_snapshots",
         ["repository_id", "branch_id", "snapshot_type", "created_at"],
     )
@@ -306,7 +306,7 @@ def downgrade() -> None:
     op.drop_index("ix_api_keys_expires_at", table_name="api_keys")
     op.drop_table("api_keys")
     op.drop_index(
-        "ix_architecture_snapshots_repository_id_branch_id_snapshot_type_created_at",
+        "ix_arch_snapshots_repo_branch_type_created",
         table_name="architecture_snapshots",
     )
     op.drop_index(
@@ -322,3 +322,4 @@ def downgrade() -> None:
     op.drop_index("ix_dependency_edges_external_package_name", table_name="dependency_edges")
     op.drop_index("ix_dependency_edges_dependency_type", table_name="dependency_edges")
     op.drop_table("dependency_edges")
+

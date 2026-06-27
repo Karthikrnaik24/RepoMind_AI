@@ -1,4 +1,4 @@
-from app.infrastructure.database.models import (
+﻿from app.infrastructure.database.models import (
     CodeChunk,
     Embedding,
     IndexingJob,
@@ -110,7 +110,7 @@ def test_embedding_pgvector_column_indexes_and_constraints_are_declared() -> Non
     constraint_names = {constraint.name for constraint in Embedding.__table__.constraints}
 
     assert isinstance(Embedding.__table__.c.embedding.type, Vector)
-    assert "uq_embeddings_code_chunk_id_model_provider_model_name_content_hash" in index_names
+    assert "uq_embeddings_chunk_model_hash" in index_names
     assert "ix_embeddings_model_provider_model_name" in index_names
     assert "ix_embeddings_indexing_job_id" in index_names
     assert "ix_embeddings_content_hash" in index_names
@@ -131,3 +131,4 @@ def test_indexing_job_indexes_and_constraints_are_declared() -> None:
     assert "ck_indexing_jobs_progress_total_non_negative" in constraint_names
     assert "ck_indexing_jobs_progress_completed_non_negative" in constraint_names
     assert "ck_indexing_jobs_progress_completed_not_greater_than_total" in constraint_names
+

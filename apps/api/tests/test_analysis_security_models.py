@@ -1,4 +1,4 @@
-from decimal import Decimal
+﻿from decimal import Decimal
 
 from app.infrastructure.database.models import (
     ApiKey,
@@ -144,7 +144,7 @@ def test_architecture_snapshot_indexes_constraints_and_json_column_are_declared(
 
     assert isinstance(ArchitectureSnapshot.__table__.c.content.type, JSONB)
     assert (
-        "ix_architecture_snapshots_repository_id_branch_id_snapshot_type_created_at"
+        "ix_arch_snapshots_repo_branch_type_created"
         in index_names
     )
     assert "ix_architecture_snapshots_indexing_job_id" in index_names
@@ -177,3 +177,4 @@ def test_audit_log_indexes_and_postgres_columns_are_declared() -> None:
     assert "ix_audit_logs_resource_type_resource_id" in index_names
     assert "ix_audit_logs_request_id" in index_names
     assert "ix_audit_logs_metadata_gin" in index_names
+

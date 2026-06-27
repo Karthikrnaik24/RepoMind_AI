@@ -1,4 +1,4 @@
-# RepoMind AI
+﻿# RepoMind AI
 
 RepoMind AI is a production-oriented repository intelligence platform for understanding, indexing, searching, and discussing software repositories with AI-assisted workflows.
 
@@ -79,6 +79,11 @@ docker compose up --build
 ```
 
 Docker Compose starts the frontend, backend, PostgreSQL with pgvector, and Redis. Use local-only credentials for development and never commit real secrets.
+### Local pgvector Note
+
+For v0.2.0 local development, PostgreSQL can run without the `pgvector` extension because repository indexing, embeddings, and AI retrieval are not active yet. The indexing migration creates a nullable JSONB placeholder for `embeddings.embedding` only when `APP_ENV` is a local/test environment and pgvector is unavailable.
+
+Production PostgreSQL should still install pgvector. TODO: pgvector is required before v0.3.0 Repository Intelligence, when indexing and embedding search become active.
 
 ## Supabase Setup
 
@@ -105,3 +110,4 @@ Copy `.env.example` to `.env` for Docker Compose, `apps/web/.env.example` to `ap
 Never expose `SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_JWT_SECRET` in the frontend.
 
 See `docs/AUTH_ARCHITECTURE.md` for the identity, JWT, OAuth, user synchronization, and future RBAC design.
+
